@@ -1,58 +1,31 @@
 package FileSieve.BusinessLogic.FileEnumeration;
 
 import java.nio.file.Path;
-import java.util.List;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.util.Map;
 
 /**
- * Interface defining utility methods for enumerating files, and identifying duplicates files,
- * within a given folder pathname.
+ * Interface defining methods for enumerating files/folders
  */
 public interface IFileEnumerator {
 
     /**
-     * Method for discovering and returning Path objects for files within a given folder (pathname).
-     * Returns a Path object for each discovered file or empty folder until no further files/folders are discoverable,
-     * at which point the method returns a Null reference.
+     * Acquires a list of discovered files and folders under a given pathname. The list is in the form of a Map with
+     * keys set to discovered file/folder paths and values set to instances of the BasicFileAttributes class, which
+     * contains attributes for each file/folder.
      *
-     * @param strFileOrFolderPathname   pathname of file or pathname of folder to be searched for files
-     * @param searchSubFolders          boolean parameter specifying if search should extend to subfolders (recursive)
-     * @return                          path object for each subsequent method call with the same pathname string, Null
-     *                                  reference if there are no further files or empty folders to return
+     * @param pathname                  pathname of folder to be searched
+     * @param searchSubFolders          boolean parameter specifying if search should extend to subfolders
+     * @return                          discovered files/folders and their attributes
      */
-    public Path getFile(String strFileOrFolderPathname, boolean searchSubFolders);
+    public Map<Path, BasicFileAttributes> getPaths(Path pathname, boolean searchSubFolders);
 
     /**
-     * Convenience method for calling getFile method with recursion enabled.
+     * Convenience method (overload) for calling getPaths method with recursion enabled.
      *
-     * @param strFileOrFolderPathname   pathname of file or pathname of folder to be searched for files
-     * @return                          path object for each subsequent method call with the same pathname string, Null
-     *                                  reference if there are no further files or empty folders to return
+     * @param pathname                  pathname to be searched
+     * @return                          discovered files/folders and their attributes
      */
-    public Path getFile(String strFileOrFolderPathname);
-
-    /**
-     * Acquires a list of all discovered files within a given folder (pathname).
-     *
-     * @param strFileOrFolderPathname   pathname of folder to be searched
-     * @param searchSubFolder           boolean parameter specifying if search should extend to subfolders
-     * @return                          list of the discovered files
-     */
-    public List<Path> getFiles(String strFileOrFolderPathname, boolean searchSubFolder);
-
-    /**
-     * Convenience method for calling getFiles method with recursion enabled.
-     *
-     * @param strFileOrFolderPathname
-     * @return
-     */
-    public List<Path> getFiles(String strFileOrFolderPathname);
-
-    /**
-     * Acquires a list of duplicated files within a given list of files.
-     *
-     * @param fileList                  List of files to be searched for duplicates
-     * @return                          List of file lists - each list contains files identified as duplicates of each other
-     */
-    public List<List<Path>> getDuplicates(List<Path> fileList);
+    public Map<Path, BasicFileAttributes> getPaths(String pathname);
     
 } // interface IFileEnumerator

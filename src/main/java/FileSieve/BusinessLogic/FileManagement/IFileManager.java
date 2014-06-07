@@ -11,19 +11,27 @@ import java.util.Set;
 public interface IFileManager {
 
     /**
-     * Method for copying a files or creating a folder on a target. Implementers construct one SwingWorker
-     * instance per files or folder to be copied/created. SwingWorker instance is return. The caller is then
-     * responsible for starting and monitoring the SwingWorker (worker thread). This permits progress status messages
-     * for the copy operation to be reported to the GUI for use by, for example, a JProgressBar.
+     * Method for copying a file or creating a folder to/within a target pathname on the current thread.
+     *
+     * @param sourcePathname    pathname of file or folder to copy
+     * @param targetPathname    pathname of file or folder to create/write
+     */
+    public void copyPathname(Path sourcePathname, Path targetPathname);
+
+    /**
+     * Method for copying a file or creating a folder to/within a target pathname. Implementers construct one
+     * SwingWorker instance per files or folder to be copied/created. SwingWorker instance is return. The caller is
+     * then responsible for starting and monitoring the SwingWorker (worker thread). This permits progress status
+     * for the copy operation to be reported to the GUI (for use by, for example, a JProgressBar).
      * See second post at following link for hints:<br>
      * http://stackoverflow.com/questions/13574461/need-to-have-jprogress-bar-to-measure-progress-when-copying-directories-and-file
      *
      * @param sourcePathname    pathname of file or folder to copy
      * @param targetPathname    pathname of file or folder to create/write
-     * @param overwriteFiles    indicates if an existing target file should be overwritten
+     * @param overwriteFile     indicates if an existing target file should be overwritten
      * @return
      */
-    public SwingWorker<Void, Integer> copyPathname(Path sourcePathname, Path targetPathname, boolean overwriteFiles);
+    public SwingWorker<Void, Integer> copyPathname(Path sourcePathname, Path targetPathname, boolean overwriteFile);
 
     /**
      * Convenience method for copying multiple files or folders to a target, each on its own SwingWorker (thread).

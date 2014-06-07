@@ -29,7 +29,9 @@ public interface IFileManager {
      * @param sourcePathname    pathname of file or folder to copy
      * @param targetPathname    pathname of file or folder to create/write
      * @param overwriteFile     indicates if an existing target file should be overwritten
-     * @return
+     * @return                  instance of a SwingWorker capable of performing the copy operation and providing
+     *                          progress updates in the form of an Integer value that represents the percentage of the
+     *                          copy operation that has been completed.
      */
     public SwingWorker<Void, Integer> getPathnameCopyWorker(Path sourcePathname, Path targetPathname, boolean overwriteFile);
 
@@ -39,7 +41,10 @@ public interface IFileManager {
      *
      * @param sourcePathnames   pathnames of files and folders to copy
      * @param targetFolder      pathname of folder to which files and folders are to be created/written
-     * @param overwriteFiles    indicates if existing target should be overwritten (applies only to files)
+     * @param overwriteFiles    indicates if existing targets should be overwritten (applies only to files)
+     * @return                  Map containing instances of a SwingWorkers capable of performing the copy operations
+     *                          and providing progress updates in the form of an Integer value that represents the
+     *                          percentage of the copy that has been completed.
      */
     public Map<Path, SwingWorker<Void, Integer>> getPathnameCopyWorkers(Set<Path> sourcePathnames, Path targetFolder, boolean overwriteFiles);
 

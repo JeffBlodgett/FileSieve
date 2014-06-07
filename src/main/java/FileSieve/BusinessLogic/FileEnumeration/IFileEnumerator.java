@@ -18,7 +18,7 @@ public interface IFileEnumerator {
      * @param searchSubFolders          boolean parameter specifying if search should extend to subfolders
      * @return                          discovered files/folders and their attributes
      */
-    public Map<Path, BasicFileAttributes> getPaths(Path pathname, boolean searchSubFolders);
+    public Map<Path, BasicFileAttributes> getPathnames(Path pathname, boolean searchSubFolders);
 
     /**
      * Convenience method (overload) for calling getPaths method with recursion enabled.
@@ -26,6 +26,6 @@ public interface IFileEnumerator {
      * @param pathname                  pathname to be searched
      * @return                          discovered files/folders and their attributes
      */
-    public Map<Path, BasicFileAttributes> getPaths(String pathname);
+    public Map<Path, BasicFileAttributes> getPathnames(String pathname);
     
 } // interface IFileEnumerator

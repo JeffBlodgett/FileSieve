@@ -2,7 +2,7 @@ package FileSieve.BusinessLogic.FileManagement;
 
 import javax.swing.SwingWorker;
 import java.nio.file.Path;
-import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -31,7 +31,7 @@ public interface IFileManager {
      * @param overwriteFile     indicates if an existing target file should be overwritten
      * @return
      */
-    public SwingWorker<Void, Integer> copyPathname(Path sourcePathname, Path targetPathname, boolean overwriteFile);
+    public SwingWorker<Void, Integer> getPathnameCopyWorker(Path sourcePathname, Path targetPathname, boolean overwriteFile);
 
     /**
      * Convenience method for copying multiple files or folders to a target, each on its own SwingWorker (thread).
@@ -41,7 +41,7 @@ public interface IFileManager {
      * @param targetFolder      pathname of folder to which files and folders are to be created/written
      * @param overwriteFiles    indicates if existing target should be overwritten (applies only to files)
      */
-    public List<SwingWorker<Void, Integer>> copyPathnames(Set<Path> sourcePathnames, Path targetFolder, boolean overwriteFiles);
+    public Map<Path, SwingWorker<Void, Integer>> getPathnameCopyWorkers(Set<Path> sourcePathnames, Path targetFolder, boolean overwriteFiles);
 
     /**
      * Method for deleting a file or folder

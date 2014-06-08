@@ -8,7 +8,7 @@ import java.util.Set;
 /**
  * Interface defining file management operations
  */
-public interface IFileManager {
+public interface FileManager {
 
     /**
      * Method for copying a file or creating a folder to/within a target pathname on the current thread.
@@ -63,4 +63,4 @@ public interface IFileManager {
      */
     public void openPathname(Path pathname);
 
-} // class IFileManager
+} // class FileManager

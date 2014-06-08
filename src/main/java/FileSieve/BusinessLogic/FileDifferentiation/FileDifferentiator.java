@@ -7,7 +7,7 @@ import java.util.Map;
 /**
  * Interface specializing in identification of file differences.
  */
-public interface IFileDifferentiator {
+public interface FileDifferentiator {
 
     /**
      * Returns a list of duplicated files within a given list of files.
@@ -28,4 +28,4 @@ public interface IFileDifferentiator {
      */
     public <T extends BasicFileAttributes> Map<Path, T> getFileDifferences(Map<Path, BasicFileAttributes> referencePathName, Map<Path, BasicFileAttributes> targetPathName);
 
-} // interface IFileDifferentiator
+} // interface FileDifferentiator

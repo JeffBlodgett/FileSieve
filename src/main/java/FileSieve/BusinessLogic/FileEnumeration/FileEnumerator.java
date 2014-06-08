@@ -7,7 +7,7 @@ import java.util.Map;
 /**
  * Interface defining methods for enumerating files/folders
  */
-public interface IFileEnumerator {
+public interface FileEnumerator {
 
     /**
      * Acquires a list of discovered files and folders under a given pathname. The list is in the form of a Map with
@@ -28,4 +28,4 @@ public interface IFileEnumerator {
      */
     public Map<Path, BasicFileAttributes> getPathnames(String pathname);
     
-} // interface IFileEnumerator
+} // interface FileEnumerator

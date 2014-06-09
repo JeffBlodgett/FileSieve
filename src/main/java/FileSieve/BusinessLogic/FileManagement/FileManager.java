@@ -12,7 +12,8 @@ import java.util.Set;
 public interface FileManager<T> {
 
     /**
-     * Method for copying a file or creating a folder to/within a target pathname on the current thread.
+     * Method for copying a file or creating a folder to/within a target pathname on the current thread. Method may
+     * handle the copy operation itself or return a provider capable of handling the copy operation on a separate thread.
      *
      * @param sourcePathname    pathname of file or folder to copy
      * @param targetPathname    pathname of file or folder to create/write
@@ -20,7 +21,7 @@ public interface FileManager<T> {
      * @return                  implementer-defined object, for indicating copy success or returning an object
      *                          capable of handling a long-running copy operation
      */
-    public T copyPathname(Path sourcePathname, Path targetPathname, boolean overwriteFile);
+    public T pathnameCopyProvider(Path sourcePathname, Path targetPathname, boolean overwriteFile);
 
     /**
      * Method for deleting a file or folder

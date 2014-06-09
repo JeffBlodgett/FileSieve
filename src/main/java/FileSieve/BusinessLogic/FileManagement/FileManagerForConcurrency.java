@@ -26,11 +26,12 @@ public abstract class FileManagerForConcurrency extends BasicFileManager<SwingWo
      *                          progress updates in the form of an Integer value representing the percentage of the
      *                          copy operation completed
      */
-    abstract public SwingWorker<Void, Integer> getPathnameCopyWorker(Path sourcePathname, Path targetPathname, boolean overwriteFile);
+    abstract public SwingWorker<Void, Integer> pathnameCopyProvider(Path sourcePathname, Path targetPathname, boolean overwriteFile);
 
     /**
      * Convenience method for copying multiple files or folders to a target, each on its own SwingWorker (thread).
-     * Uses the copyPathname method defined by this interface.
+     * Uses the pathnameCopyProvider method defined by this class to return one SwingWorker instance per file/folder
+     * to be copied/created.
      *
      * @param sourcePathnames   pathnames of files and folders to copy
      * @param targetFolder      pathname of folder to which files and folders are to be created/written
@@ -39,6 +40,6 @@ public abstract class FileManagerForConcurrency extends BasicFileManager<SwingWo
      *                          and providing progress updates in the form of an Integer value representing the
      *                          percentage of the copy operation completed
      */
-    abstract public Map<Path, SwingWorker<Void, Integer>> getPathnameCopyWorkers(Set<Path> sourcePathnames, Path targetFolder, boolean overwriteFiles);
+    abstract public Map<Path, SwingWorker<Void, Integer>> pathnameCopyProviders(Set<Path> sourcePathnames, Path targetFolder, boolean overwriteFiles);
 
 } // abstract class ConcurrentFileManager extends BasicFileManager<SwingWorker<Void, Integer>>

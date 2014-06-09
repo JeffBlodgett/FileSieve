@@ -17,8 +17,6 @@
 *.iso
 *.rar
 *.tar
- 
- 
 
 # OS generated files #
 ######################
@@ -27,11 +25,15 @@
 ._*
 .Spotlight-V100
 .Trashes
-/.idea/
-*.iml
 ehthumbs.db
 Thumbs.db
+
+# IDE generated files #
+#######################
+/.idea/
+*.iml
 manifest.mf
 nbbuild.xml
 /nbproject/
 /build/
+/out/

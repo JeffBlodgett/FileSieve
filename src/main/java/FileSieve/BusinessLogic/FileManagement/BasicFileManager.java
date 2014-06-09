@@ -23,7 +23,7 @@ public abstract class BasicFileManager<T> implements FileManager<T> {
      * @throws DirectoryNotEmptyException       thrown if pathname is a directory and is not empty (IOException)
      * @throws IOException                      thrown if some other I/O error occurs
      */
-    public boolean deleteFile(Path pathname) throws NullPointerException, SecurityException, DirectoryNotEmptyException, IOException  {
+    public boolean deletePathname(Path pathname) throws NullPointerException, SecurityException, DirectoryNotEmptyException, IOException  {
         if (pathname == null) throw new NullPointerException();
         return Files.deleteIfExists(pathname);
     }

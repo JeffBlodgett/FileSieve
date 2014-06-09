@@ -5,6 +5,10 @@ import java.nio.file.Path;
 import java.util.Map;
 import java.util.Set;
 
+/**
+ * File management class defining methods for the acquisition of SwingWorker instances to be used for potentially
+ * long-running file copy operations
+ */
 public abstract class FileManagerForConcurrency extends BasicFileManager<SwingWorker<Void, Integer>> {
 
     /**

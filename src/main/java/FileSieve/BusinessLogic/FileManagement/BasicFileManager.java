@@ -7,9 +7,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 /**
- * Basic file management with default implementations for deleting or opening files and folders
+ * Basic file management class with default implementations for deleting or opening files and folders
  *
- * @param <T>   A type, unused by the methods of this abstract class
+ * @param <T>   A type used by unimplemented members of the FileManager interface
  */
 public abstract class BasicFileManager<T> implements FileManager<T> {
 
@@ -40,13 +40,16 @@ public abstract class BasicFileManager<T> implements FileManager<T> {
     public void openPathname(Path pathname) throws NullPointerException, UnsupportedOperationException, IOException {
         if (pathname == null) throw new NullPointerException();
 
-        Desktop desktop = null;
-        if (Desktop.isDesktopSupported() && desktop.isSupported(Desktop.Action.OPEN)) {
+        Desktop desktop;
+        if (Desktop.isDesktopSupported()) {
             desktop = Desktop.getDesktop();
-            desktop.open(pathname.toFile());
-        } else {
-            throw new UnsupportedOperationException();
+            if (desktop.isSupported(Desktop.Action.OPEN)) {
+                desktop.open(pathname.toFile());
+                return;
+            }
         }
+
+        throw new UnsupportedOperationException();
     }
 
 } // abstract class BasicFileManager<T> implements FileManager<T>

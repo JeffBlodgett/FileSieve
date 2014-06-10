@@ -8,6 +8,8 @@ import java.util.Set;
 
 /**
  * Interface defining file management operations
+ *
+ * @param <T>   a type to be returned by implementations of the pathnameCopyProvider method
  */
 public interface FileManager<T> {
 
@@ -30,7 +32,7 @@ public interface FileManager<T> {
      * @return                  boolean value indicating if file was successfully deleted
      * @throws IOException      thrown if an I/O error occurs
      */
-    public boolean deleteFile(Path pathname) throws IOException;
+    public boolean deletePathname(Path pathname) throws IOException;
 
     /**
      * Opens the given file or folder using the application registered on the host system for opening files of the
@@ -41,4 +43,4 @@ public interface FileManager<T> {
      */
     public void openPathname(Path pathname) throws IOException;
 
-} // class FileManager
+} // interface FileManager<T>

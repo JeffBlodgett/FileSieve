@@ -2,14 +2,16 @@ package FileSieve.BusinessLogic.FileManagement;
 
 import javax.swing.SwingWorker;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 
 /**
  * File management class defining methods for the acquisition of SwingWorker instances to be used for potentially
  * long-running file copy operations
  */
-public abstract class FileManagerForConcurrency extends BasicFileManager<SwingWorker<Void, Integer>> {
+public class SwingWorkerFileManagement extends BasicFileManager<SwingWorker<Void, Integer>> {
 
     /**
      * Method for copying a file or creating a folder to/within a target pathname. Implementers construct one
@@ -26,7 +28,12 @@ public abstract class FileManagerForConcurrency extends BasicFileManager<SwingWo
      *                          progress updates in the form of an Integer value representing the percentage of the
      *                          copy operation completed
      */
-    abstract public SwingWorker<Void, Integer> pathnameCopyProvider(Path sourcePathname, Path targetPathname, boolean overwriteFile);
+    @Override
+    public SwingWorker<Void, Integer> pathnameCopyProvider(Path sourcePathname, Path targetPathname, boolean overwriteFile) {
+        if ((sourcePathname == null) || (targetPathname == null)) throw new NullPointerException("null pathname provided for source or target");
+
+        return new PathnameCopyWorker(sourcePathname, targetPathname, overwriteFile);
+    }
 
     /**
      * Convenience method for copying multiple files or folders to a target, each on its own SwingWorker (thread).
@@ -40,6 +47,44 @@ public abstract class FileManagerForConcurrency extends BasicFileManager<SwingWo
      *                          and providing progress updates in the form of an Integer value representing the
      *                          percentage of the copy operation completed
      */
-    abstract public Map<Path, SwingWorker<Void, Integer>> pathnameCopyProviders(Set<Path> sourcePathnames, Path targetFolder, boolean overwriteFiles);
+    public Map<Path, SwingWorker<Void, Integer>> getPathnameCopyProviders(Set<Path> sourcePathnames, Path targetFolder, boolean overwriteFiles) {
+        if ((sourcePathnames == null) || (targetFolder == null)) throw new NullPointerException("null pathname provided for sources or target");
 
-} // abstract class ConcurrentFileManager extends BasicFileManager<SwingWorker<Void, Integer>>
+        Map<Path, SwingWorker<Void, Integer>> swingWorkers = new TreeMap<Path, SwingWorker<Void, Integer>>();
+        for (Path path : sourcePathnames) {
+            swingWorkers.put(path, pathnameCopyProvider(path, targetFolder, overwriteFiles));
+        }
+
+        return swingWorkers;
+    }
+
+    /**
+     * SwingWorker capable of copying a file or folder from a source pathname to a target pathname while providing
+     * progress updates in the form of an Integer representing the percentage of the copy operation that is complete
+     */
+    private static class PathnameCopyWorker extends SwingWorker<Void, Integer> {
+
+        // TODO "PathnameCopyWorker" is currently just a stub class that enables "SwingWorkerFileManagement" compilation
+
+        public PathnameCopyWorker(Path sourcePathname, Path targetPathname, boolean overwriteFile) {
+            if ((sourcePathname == null) || (targetPathname == null)) throw new NullPointerException("null pathname provided for source or target");
+        }
+
+        @Override
+        public Void doInBackground() {
+            return null;
+        }
+
+        @Override
+        public void process(List<Integer> chunks) {
+
+        }
+
+        @Override
+        public void done() {
+
+        }
+
+    } // class PathnameCopyWorker extends SwingWorker<Void, Integer>
+
+} // class SwingWorkerFileManagement extends BasicFileManager<SwingWorker<Void, Integer>>

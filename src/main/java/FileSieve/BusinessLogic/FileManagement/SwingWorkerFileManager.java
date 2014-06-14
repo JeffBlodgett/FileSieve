@@ -1,17 +1,15 @@
 package FileSieve.BusinessLogic.FileManagement;
 
-import javax.swing.SwingWorker;
 import java.nio.file.Path;
-import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeMap;
 
 /**
  * File management class defining methods for the acquisition of SwingWorker instances to be used for potentially
  * long-running file copy operations
  */
-public class SwingWorkerFileManagement extends BasicFileManager<SwingWorker<Void, Integer>> {
+class SwingWorkerFileManager extends BasicFileManager<PathnameCopyWorker> {
 
     /**
      * Method for copying a file or creating a folder to/within a target pathname. Implementers construct one
@@ -23,16 +21,21 @@ public class SwingWorkerFileManagement extends BasicFileManager<SwingWorker<Void
      *
      * @param sourcePathname    pathname of file or folder to copy
      * @param targetPathname    pathname of file or folder to create/write
-     * @param overwriteFile     indicates if an existing target file should be overwritten
+     * @param overwriteFile     indicates if existing files in the target path should be overwritten
+     * @param ifSizeDiffers     if "overwriteExisting" argument is true, overwrites existing files only if their size differs
      * @return                  instance of a SwingWorker capable of performing the copy operation and providing
      *                          progress updates in the form of an Integer value representing the percentage of the
      *                          copy operation completed
      */
     @Override
-    public SwingWorker<Void, Integer> pathnameCopyProvider(Path sourcePathname, Path targetPathname, boolean overwriteFile) {
+    public PathnameCopyWorker pathnameCopyProvider(Path sourcePathname, Path targetPathname, boolean overwriteFile, boolean ifSizeDiffers) {
         if ((sourcePathname == null) || (targetPathname == null)) throw new NullPointerException("null pathname provided for source or target");
 
-        return new PathnameCopyWorker(sourcePathname, targetPathname, overwriteFile);
+        PathnameCopyWorker worker = new PathnameCopyWorker(sourcePathname, targetPathname);
+        worker.setOverwriteExistingFiles(overwriteFile);
+        worker.setOverwriteIfSizeDiffers(ifSizeDiffers);
+
+        return worker;
     }
 
     /**
@@ -42,49 +45,21 @@ public class SwingWorkerFileManagement extends BasicFileManager<SwingWorker<Void
      *
      * @param sourcePathnames   pathnames of files and folders to copy
      * @param targetFolder      pathname of folder to which files and folders are to be created/written
-     * @param overwriteFiles    indicates if existing targets should be overwritten (applies only to files)
+     * @param overwriteFiles    indicates if existing files in the target path should be overwritten
+     * @param ifSizeDiffers     if "overwriteExisting" argument is true, overwrites existing files only if their size differs
      * @return                  Map containing instances of a SwingWorkers capable of performing the copy operations
      *                          and providing progress updates in the form of an Integer value representing the
      *                          percentage of the copy operation completed
      */
-    public Map<Path, SwingWorker<Void, Integer>> getPathnameCopyProviders(Set<Path> sourcePathnames, Path targetFolder, boolean overwriteFiles) {
+    public Map<Path, PathnameCopyWorker> getPathnameCopyProviders(Set<Path> sourcePathnames, Path targetFolder, boolean overwriteFiles, boolean ifSizeDiffers) {
         if ((sourcePathnames == null) || (targetFolder == null)) throw new NullPointerException("null pathname provided for sources or target");
 
-        Map<Path, SwingWorker<Void, Integer>> swingWorkers = new TreeMap<Path, SwingWorker<Void, Integer>>();
+        Map<Path, PathnameCopyWorker> workers = new LinkedHashMap<Path, PathnameCopyWorker>(sourcePathnames.size());
         for (Path path : sourcePathnames) {
-            swingWorkers.put(path, pathnameCopyProvider(path, targetFolder, overwriteFiles));
+            workers.put(path, pathnameCopyProvider(path, targetFolder, overwriteFiles, ifSizeDiffers));
         }
 
-        return swingWorkers;
+        return workers;
     }
 
-    /**
-     * SwingWorker capable of copying a file or folder from a source pathname to a target pathname while providing
-     * progress updates in the form of an Integer representing the percentage of the copy operation that is complete
-     */
-    private static class PathnameCopyWorker extends SwingWorker<Void, Integer> {
-
-        // TODO "PathnameCopyWorker" is currently just a stub class that enables "SwingWorkerFileManagement" compilation
-
-        public PathnameCopyWorker(Path sourcePathname, Path targetPathname, boolean overwriteFile) {
-            if ((sourcePathname == null) || (targetPathname == null)) throw new NullPointerException("null pathname provided for source or target");
-        }
-
-        @Override
-        public Void doInBackground() {
-            return null;
-        }
-
-        @Override
-        public void process(List<Integer> chunks) {
-
-        }
-
-        @Override
-        public void done() {
-
-        }
-
-    } // class PathnameCopyWorker extends SwingWorker<Void, Integer>
-
-} // class SwingWorkerFileManagement extends BasicFileManager<SwingWorker<Void, Integer>>
+} // class SwingWorkerFileManagement extends BasicFileManager

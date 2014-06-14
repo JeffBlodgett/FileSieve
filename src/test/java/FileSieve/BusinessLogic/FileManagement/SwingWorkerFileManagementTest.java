@@ -7,27 +7,33 @@ import org.junit.Test;
 import org.junit.Assert;
 
 import javax.swing.SwingWorker;
+import java.io.BufferedOutputStream;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.concurrent.ExecutionException;
 
 /**
  * JUnit testing of SwingWorkerFileManagement class
  */
 public class SwingWorkerFileManagementTest {
 
-    private FileManager<SwingWorker<Void, Integer>> fileManager;
+    private FileManager<PathnameCopyWorker> fileManager;
     private String userTempFolder;
     private Path file;
     private Path folder;
+    private Path subFolder;
+    private static boolean deletePathnameTestsPassed = false;
 
     @Before
     public void setup() {
-        fileManager = new SwingWorkerFileManagement();
+        fileManager = FileManagerFactory.getSwingWorkerFileManager();
         userTempFolder = System.getProperty("java.io.tmpdir");
-        file = new File(userTempFolder + "testDeletePathname.txt").toPath();
-        folder = new File(userTempFolder + "testDeletePathnameFolder").toPath();
+        file = new File(userTempFolder + "swingWorkerFileManagementTestFile.txt").toPath();
+        folder = new File(userTempFolder + "swingWorkerFileManagementTestFolder").toPath();
+        subFolder = new File(folder + "/subFolderForSwingWorkerFileManagementTests").toPath();
 
         Assume.assumeTrue("temporary file and folder used for tests should not pre-exist", !Files.exists(file) && !Files.exists(folder));
     }
@@ -44,11 +50,10 @@ public class SwingWorkerFileManagementTest {
 
     @Test
     public void testDeletePathname() {
-        Path folderFile1 = new File(userTempFolder + "testDeletePathnameFolder" + "/testDeletePathname1.txt").toPath();
-        Path folderFile2 = new File(userTempFolder + "testDeletePathnameFolder" + "/testDeletePathname2.txt").toPath();
-        Path subFolder = new File(userTempFolder + "testDeletePathnameFolder" + "/testDeletePathnameSubFolder").toPath();
-        Path subFolderFile1 = new File(userTempFolder + "testDeletePathnameFolder" + "/testDeletePathnameSubFolder/testDeletePathname1.txt").toPath();
-        Path subFolderFile2 = new File(userTempFolder + "testDeletePathnameFolder" + "/testDeletePathnameSubFolder/testDeletePathname2.txt").toPath();
+        Path folderFile1 = new File(folder + "/testFile1.txt").toPath();
+        Path folderFile2 = new File(folder + "/testFile2.txt").toPath();
+        Path subFolderFile1 = new File(subFolder + "/testDeletePathname1.txt").toPath();
+        Path subFolderFile2 = new File(subFolder + "/testDeletePathname2.txt").toPath();
 
         try {
             Assert.assertFalse("Attempted deletion of non-existent file should return false", fileManager.deletePathname(file));
@@ -98,6 +103,8 @@ public class SwingWorkerFileManagementTest {
         } catch (SecurityException | IOException e) {
             Assert.fail(e.getClass().getSimpleName() + "while attempting to delete a folder hierarchy in the temp folder");
         }
+
+        deletePathnameTestsPassed = true;
     }
 
     @Test
@@ -105,13 +112,14 @@ public class SwingWorkerFileManagementTest {
         try {
             Files.createFile(file);
         } catch (IOException e) {
-            Assert.fail(e.getClass().getSimpleName() + "while attempting to create temporary folder for use in testing \"openPathname\" method");
+            Assert.fail(e.getClass().getSimpleName() + "while attempting to create temporary file for use in testing \"openPathname\" method");
         }
 
         try {
+            ((BasicFileManager)fileManager).setDesktopOpenDisabled(true);   // Prevents file from being open in next statement
             fileManager.openPathname(file);
         } catch (UnsupportedOperationException e) {
-            Assert.fail("current platform does not support the Desktop class or does not support the Desktop.Action.OPEN action");
+            Assert.fail("current platform does not support the Desktop class, does not support the Desktop.Action.OPEN action, or is headless");
         } catch (SecurityException e) {
             Assert.fail("insufficient access permissions");
         } catch (IOException e) {
@@ -127,7 +135,43 @@ public class SwingWorkerFileManagementTest {
 
     @Test
     public void testPathnameCopyProvider() {
-        // TODO test for pathnameCopyProvider method
+        if (deletePathnameTestsPassed == false) Assert.fail("pathnameCopyProviders testing depends on deletePathname testing, which failed");
+
+        // TODO The following is a basic test, just copying one file to a target folder... much more to follow
+
+        Path fileToCopy = new File(folder + "/fileToCopy.txt").toPath();
+        try {
+            Files.createDirectory(folder);
+        } catch (SecurityException | IOException e) {
+            Assert.fail(e.getClass().getSimpleName() + "while attempting to create \"" + folder.toFile().getName() + "\" folder in temp folder");
+        }
+        try (BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(fileToCopy.toFile()))) {
+            int aByte = 0;
+            for (long i = 0; i < 2000000L; i++) {
+                bos.write(aByte);
+            }
+        } catch (IOException e) {
+            Assert.fail("IOException while attempting to create temporary file for use in testing file copy operation");
+        }
+
+        PathnameCopyWorker worker = fileManager.pathnameCopyProvider(fileToCopy, subFolder, false, false);
+        try {
+            worker.execute();
+            Assert.assertTrue("copying of a temp file to a folder", worker.get());
+            for (String str : worker.getCreatedPathnames().keySet()) {
+                System.out.println(str);
+            }
+        } catch (InterruptedException | ExecutionException e) {
+            Assert.fail(e.getClass().getSimpleName() + " during PathnameCopyWorker execution");
+        }
+
+        //try { Thread.sleep(10000); } catch (InterruptedException e) {}
+
+        try {
+            fileManager.deletePathname(folder);
+        } catch (IOException e) {
+            Assert.fail("IOException while attempting to delete temporary folder tree");
+        }
     }
 
     @Test

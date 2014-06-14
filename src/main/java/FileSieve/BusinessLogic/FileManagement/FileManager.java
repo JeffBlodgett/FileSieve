@@ -1,15 +1,10 @@
 package FileSieve.BusinessLogic.FileManagement;
 
-import javax.swing.SwingWorker;
 import java.io.IOException;
 import java.nio.file.Path;
-import java.util.Map;
-import java.util.Set;
 
 /**
  * Interface defining file management operations
- *
- * @param <T>   a type to be returned by implementations of the pathnameCopyProvider method
  */
 public interface FileManager<T> {
 
@@ -17,13 +12,15 @@ public interface FileManager<T> {
      * Method for copying a file or creating a folder to/within a target pathname on the current thread. Method may
      * handle the copy operation itself or return a provider capable of handling the copy operation on a separate thread.
      *
-     * @param sourcePathname    pathname of file or folder to copy
-     * @param targetPathname    pathname of file or folder to create/write
-     * @param overwriteFile     indicates if an existing target file should be overwritten
-     * @return                  implementer-defined object, for indicating copy success or returning an object
-     *                          capable of handling a long-running copy operation
+     * @param sourcePathname        pathname of file or folder to copy
+     * @param targetPathname        pathname of file or folder to create/write
+     * @param overwriteExisting     indicates if existing files in the target path should be overwritten
+     * @param ifSizeDiffers         if "overwriteExisting" argument is true, overwrites existing files only if their size differs
+     * //@param <T>                   class type of the object returned
+     * @return                      implementer-defined object, for indicating copy success or returning an object
+     *                              capable of handling a long-running copy operation
      */
-    public T pathnameCopyProvider(Path sourcePathname, Path targetPathname, boolean overwriteFile);
+    public T pathnameCopyProvider(Path sourcePathname, Path targetPathname, boolean overwriteExisting, boolean ifSizeDiffers);
 
     /**
      * Method for deleting a file or folder
@@ -43,4 +40,4 @@ public interface FileManager<T> {
      */
     public void openPathname(Path pathname) throws IOException;
 
-} // interface FileManager<T>
+} // interface FileManager

@@ -1,16 +1,30 @@
 package FileSieve.BusinessLogic.FileManagement;
 
 import java.awt.Desktop;
+import java.awt.GraphicsEnvironment;
 import java.io.IOException;
-import java.nio.file.*;
+import java.nio.file.FileVisitResult;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 
 /**
- * Basic file management class with default implementations for deleting or opening files and folders
- *
- * @param <T>   A type returned by (unimplemented) members of the FileManager interface
+ * Basic file management class with default implementations for deleting and opening files and folders
  */
-public abstract class BasicFileManager<T> implements FileManager<T> {
+abstract class BasicFileManager<T> implements FileManager<T> {
+
+    private boolean disableDesktopOpenMethod = false;
+
+    /**
+     * Prevents the Desktop.open method from being called by the openPathname method during JUnit testing.
+     * Flag holds for only one client call of the "openPathname" method.
+     *
+     * @param disableFileOpen                   pass a value of "true "if Desktop.open method is to be disable for testing
+     */
+    protected void setDesktopOpenDisabled(boolean disableFileOpen) {
+        disableDesktopOpenMethod = disableFileOpen;
+    }
 
     /**
      * Deletes a given file or folder
@@ -46,24 +60,34 @@ public abstract class BasicFileManager<T> implements FileManager<T> {
      *
      * @param pathname                          pathname of a file or folder to be opened
      * @throws NullPointerException             thrown if provided pathname is null (RunTimeException)
-     * @throws UnsupportedOperationException    thrown if the current platform does not support the Desktop class or does not support the Desktop.Action.OPEN action (RunTimeException)
+     * @throws UnsupportedOperationException    thrown if the platform does not support the Desktop class or does not support the Desktop.Action.OPEN action (RunTimeException)
      * @throws SecurityException                thrown if the SecurityManager.checkDelete method throws a SecurityException (RunTimeException)
+     * @throws IllegalArgumentException         thrown if the provided pathname does not exist
      * @throws IOException                      thrown if the specified file has no associated application or the associated application fails to be launched
      */
     @Override
-    public void openPathname(Path pathname) throws NullPointerException, UnsupportedOperationException, SecurityException, IOException {
-        if (pathname == null) throw new NullPointerException("null pathname provided");
+    public void openPathname(Path pathname) throws NullPointerException, UnsupportedOperationException, IllegalArgumentException, SecurityException, IOException {
+        try {
+            if (pathname == null) throw new NullPointerException("null pathname provided");
 
-        Desktop desktop;
-        if (Desktop.isDesktopSupported()) {
-            desktop = Desktop.getDesktop();
-            if (desktop.isSupported(Desktop.Action.OPEN)) {
-                desktop.open(pathname.toFile());
-                return;
+            if (Desktop.isDesktopSupported()) {
+                if (!GraphicsEnvironment.isHeadless()) {
+                    Desktop desktop = Desktop.getDesktop();
+                    if (desktop.isSupported(Desktop.Action.OPEN)) {
+                        if (disableDesktopOpenMethod == false) {
+                            desktop.open(pathname.toFile());
+                        }
+                        return;
+                    }
+                } else {
+                    throw new UnsupportedOperationException("The system is headless");
+                }
+            } else {
+                throw new UnsupportedOperationException("Desktop class is not supported by this platform");
             }
+        } finally {
+            disableDesktopOpenMethod = false;
         }
-
-        throw new UnsupportedOperationException();
     }
 
     /**
@@ -103,4 +127,4 @@ public abstract class BasicFileManager<T> implements FileManager<T> {
         });
     }
 
-} // abstract class BasicFileManager<T> implements FileManager<T>
+} // abstract class BasicFileManager implements FileManager

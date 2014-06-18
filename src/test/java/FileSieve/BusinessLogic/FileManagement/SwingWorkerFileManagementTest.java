@@ -11,8 +11,11 @@ import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ExecutionException;
 
 /**
@@ -25,6 +28,7 @@ public class SwingWorkerFileManagementTest {
     private Path file;
     private Path folder;
     private Path subFolder;
+    private Path anotherFolder;
     private static boolean deletePathnameTestsPassed = false;
 
     @Before
@@ -34,6 +38,7 @@ public class SwingWorkerFileManagementTest {
         file = new File(userTempFolder + "swingWorkerFileManagementTestFile.txt").toPath();
         folder = new File(userTempFolder + "swingWorkerFileManagementTestFolder").toPath();
         subFolder = new File(folder + "/subFolderForSwingWorkerFileManagementTests").toPath();
+        anotherFolder = new File(userTempFolder + "swingWorkerFileManagementTestFolder2").toPath();
 
         Assume.assumeTrue("temporary file and folder used for tests should not pre-exist", !Files.exists(file) && !Files.exists(folder));
     }
@@ -42,7 +47,11 @@ public class SwingWorkerFileManagementTest {
     public void cleanup() {
         try {
             Files.deleteIfExists(file);
-            fileManager.deletePathname(folder); // May not work, but better than nothing
+
+            if (deletePathnameTestsPassed) {
+                fileManager.deletePathname(folder);
+                fileManager.deletePathname(anotherFolder);
+            }
         } catch (SecurityException | IOException e) {
             // Ignore exceptions
         }
@@ -135,16 +144,14 @@ public class SwingWorkerFileManagementTest {
 
     @Test
     public void testPathnameCopyProvider() {
-        if (deletePathnameTestsPassed == false) Assert.fail("pathnameCopyProviders testing depends on deletePathname testing, which failed");
+        if (deletePathnameTestsPassed == false) Assert.fail("testings of pathnameCopyProviders method depends on deletePathname testing, one or assertions for which failed");
 
-        // TODO The following is a basic test, just copying one file to a target folder... much more to follow
-
-        Path fileToCopy = new File(folder + "/fileToCopy.txt").toPath();
         try {
-            Files.createDirectory(folder);
+            Files.createDirectory(folder);          // creates folder named "swingWorkerFileManagementTestFolder" in user's temp folder
         } catch (SecurityException | IOException e) {
             Assert.fail(e.getClass().getSimpleName() + "while attempting to create \"" + folder.toFile().getName() + "\" folder in temp folder");
         }
+        Path fileToCopy = new File(folder + "/fileToCopy.txt").toPath();
         try (BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(fileToCopy.toFile()))) {
             int aByte = 0;
             for (long i = 0; i < 2000000L; i++) {
@@ -154,21 +161,66 @@ public class SwingWorkerFileManagementTest {
             Assert.fail("IOException while attempting to create temporary file for use in testing file copy operation");
         }
 
-        PathnameCopyWorker worker = fileManager.pathnameCopyProvider(fileToCopy, subFolder, false, false);
+//        // ASSERTION SET 1: Copy a single file to a non-existing target folder (recursion enabled but isn't applicable in the case of a file as the sourcePathname)
+//        PathnameCopyWorker worker1 = fileManager.copyProvider(fileToCopy, anotherFolder, true, false, false);
+//        try {
+//            worker1.execute();
+//
+//            // SwingWorker.get() method causes code execution in current thread to block until SwingWorker's state is "DONE"
+//            Assert.assertTrue("copying of a file to a new folder, PathnameCopyWorker.get() method returns true", worker1.get());
+//            Assert.assertTrue("copying of a file to a new folder, copy of file exists in targetPathname", Files.exists(new File(anotherFolder + "/fileToCopy.txt").toPath()));
+//        } catch (InterruptedException e) {
+//            Assert.fail("InterruptedException during PathnameCopyWorker execution, copying of a file to a new folder");
+//        } catch (ExecutionException e) {
+//            Assert.fail(e.getCause().getClass().getSimpleName() + " during PathnameCopyWorker execution, copying of a file to a new folder - " + e.getCause().getMessage());
+//        }
+//        try {
+//            fileManager.deletePathname(anotherFolder);
+//        } catch (IOException e) {
+//            Assert.fail("IOException while deleting folder following assertion of non-recursive copying of a folder - " + anotherFolder);
+//        }
+
+        // ASSERTION SET 2: Copy a single folder to a non-existing target folder (recursion disabled)
+        PathnameCopyWorker worker2 = fileManager.copyProvider(folder, anotherFolder, false, false, false);
         try {
-            worker.execute();
-            Assert.assertTrue("copying of a temp file to a folder", worker.get());
-            for (String str : worker.getCreatedPathnames().keySet()) {
+            worker2.execute();
+            Assert.assertTrue("non-recursive copying of a folder, PathnameCopyWorker.get() method returns true", worker2.get());
+            for (String str : worker2.getCreatedPathnames().keySet()) {
                 System.out.println(str);
             }
-        } catch (InterruptedException | ExecutionException e) {
-            Assert.fail(e.getClass().getSimpleName() + " during PathnameCopyWorker execution");
+            System.out.println();
+
+            int count = 0;
+            try (DirectoryStream<Path> dirStream = Files.newDirectoryStream(anotherFolder);) {
+                for (Path path : dirStream) {
+                    count++;
+                }
+            } catch (IOException e) {
+                // Ignore exceptions
+            }
+            Path sourceFolderName = folder.getName(folder.getNameCount() - 1);
+            Assert.assertTrue("non-recursive copying of a folder, created a single empty folder within target folder", (count == 1) && Files.isDirectory(anotherFolder.resolve(sourceFolderName)));
+
+        } catch (InterruptedException e) {
+            Assert.fail("InterruptedException during PathnameCopyWorker execution, non-recursive copying of a folder");
+        } catch (ExecutionException e) {
+            Assert.fail(e.getCause().getClass().getSimpleName() + " during PathnameCopyWorker execution, non-recursive copying of a folder - " + e.getCause().getMessage() );
+        }
+        try {
+            fileManager.deletePathname(anotherFolder);
+        } catch (IOException e) {
+            Assert.fail("IOException while deleting folder following assertion of non-recursive copying of a folder: " + anotherFolder);
         }
 
-        //try { Thread.sleep(10000); } catch (InterruptedException e) {}
 
+        // ASSERTION SET 3: Copy the a folder, including its contents, to a target folder
+
+        // ASSERTION SET 4: Repeat
+
+        // Cleanup
         try {
             fileManager.deletePathname(folder);
+            fileManager.deletePathname(anotherFolder);
         } catch (IOException e) {
             Assert.fail("IOException while attempting to delete temporary folder tree");
         }

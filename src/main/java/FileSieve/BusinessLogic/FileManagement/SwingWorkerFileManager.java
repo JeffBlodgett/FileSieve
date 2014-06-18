@@ -21,6 +21,7 @@ class SwingWorkerFileManager extends BasicFileManager<PathnameCopyWorker> {
      *
      * @param sourcePathname    pathname of file or folder to copy
      * @param targetPathname    pathname of file or folder to create/write
+     * @param recursionEnabled  recursive search for files within subfolders
      * @param overwriteFile     indicates if existing files in the target path should be overwritten
      * @param ifSizeDiffers     if "overwriteExisting" argument is true, overwrites existing files only if their size differs
      * @return                  instance of a SwingWorker capable of performing the copy operation and providing
@@ -28,12 +29,13 @@ class SwingWorkerFileManager extends BasicFileManager<PathnameCopyWorker> {
      *                          copy operation completed
      */
     @Override
-    public PathnameCopyWorker pathnameCopyProvider(Path sourcePathname, Path targetPathname, boolean overwriteFile, boolean ifSizeDiffers) {
+    public PathnameCopyWorker copyProvider(Path sourcePathname, Path targetPathname, boolean recursionEnabled, boolean overwriteFile, boolean ifSizeDiffers) {
         if ((sourcePathname == null) || (targetPathname == null)) throw new NullPointerException("null pathname provided for source or target");
 
         PathnameCopyWorker worker = new PathnameCopyWorker(sourcePathname, targetPathname);
         worker.setOverwriteExistingFiles(overwriteFile);
         worker.setOverwriteIfSizeDiffers(ifSizeDiffers);
+        worker.setRecursionEnabled(recursionEnabled);
 
         return worker;
     }
@@ -45,18 +47,19 @@ class SwingWorkerFileManager extends BasicFileManager<PathnameCopyWorker> {
      *
      * @param sourcePathnames   pathnames of files and folders to copy
      * @param targetFolder      pathname of folder to which files and folders are to be created/written
+     * @param recursionEnabled  recursive search for files within subfolders
      * @param overwriteFiles    indicates if existing files in the target path should be overwritten
      * @param ifSizeDiffers     if "overwriteExisting" argument is true, overwrites existing files only if their size differs
      * @return                  Map containing instances of a SwingWorkers capable of performing the copy operations
      *                          and providing progress updates in the form of an Integer value representing the
      *                          percentage of the copy operation completed
      */
-    public Map<Path, PathnameCopyWorker> getPathnameCopyProviders(Set<Path> sourcePathnames, Path targetFolder, boolean overwriteFiles, boolean ifSizeDiffers) {
+    public Map<Path, PathnameCopyWorker> getCopyProviders(Set<Path> sourcePathnames, Path targetFolder, boolean recursionEnabled, boolean overwriteFiles, boolean ifSizeDiffers) {
         if ((sourcePathnames == null) || (targetFolder == null)) throw new NullPointerException("null pathname provided for sources or target");
 
         Map<Path, PathnameCopyWorker> workers = new LinkedHashMap<Path, PathnameCopyWorker>(sourcePathnames.size());
         for (Path path : sourcePathnames) {
-            workers.put(path, pathnameCopyProvider(path, targetFolder, overwriteFiles, ifSizeDiffers));
+            workers.put(path, copyProvider(path, targetFolder, recursionEnabled, overwriteFiles, ifSizeDiffers));
         }
 
         return workers;

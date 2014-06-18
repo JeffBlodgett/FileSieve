@@ -5,22 +5,24 @@ import java.nio.file.Path;
 
 /**
  * Interface defining file management operations
+ *
+ * @param <T>   Type returned by the interface's copyProvider method
  */
 public interface FileManager<T> {
 
     /**
-     * Method for copying a file or creating a folder to/within a target pathname on the current thread. Method may
-     * handle the copy operation itself or return a provider capable of handling the copy operation on a separate thread.
+     * Method for copying a file or creating a folder to/within a target pathname. Method may handle the copy operation
+     * itself or return a provider (such as a SwingWorker) capable of handling the copy operation on a separate thread.
      *
-     * @param sourcePathname        pathname of file or folder to copy
-     * @param targetPathname        pathname of file or folder to create/write
-     * @param overwriteExisting     indicates if existing files in the target path should be overwritten
-     * @param ifSizeDiffers         if "overwriteExisting" argument is true, overwrites existing files only if their size differs
-     * //@param <T>                   class type of the object returned
-     * @return                      implementer-defined object, for indicating copy success or returning an object
-     *                              capable of handling a long-running copy operation
+     * @param sourcePathname    pathname of file or folder to copy
+     * @param targetPathname    pathname of file or folder to create/write
+     * @param recursionEnabled  recursive search for files within subfolders
+     * @param overwriteExisting indicates if existing files in the target path should be overwritten
+     * @param ifSizeDiffers     if "overwriteExisting" argument is true, overwrites existing files only if their size differs
+     * @return                  implementer-defined object, for indicating copy success or returning a worker object
+     *                          capable of handling a longer-running copy operation
      */
-    public T pathnameCopyProvider(Path sourcePathname, Path targetPathname, boolean overwriteExisting, boolean ifSizeDiffers);
+    public T copyProvider(Path sourcePathname, Path targetPathname, boolean recursionEnabled, boolean overwriteExisting, boolean ifSizeDiffers);
 
     /**
      * Method for deleting a file or folder

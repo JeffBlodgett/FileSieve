@@ -11,6 +11,8 @@ import java.nio.file.attribute.BasicFileAttributes;
 
 /**
  * Basic file management class with default implementations for deleting and opening files and folders
+ *
+ * @param <T>   Type returned by the FileManager interface's copyProvider method
  */
 abstract class BasicFileManager<T> implements FileManager<T> {
 

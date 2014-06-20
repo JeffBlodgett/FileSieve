@@ -6,6 +6,8 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.Assert;
 
+import java.beans.PropertyChangeEvent;
+import java.beans.PropertyChangeListener;
 import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -14,7 +16,9 @@ import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
+import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * JUnit testing for the ConcurrentFileManager class
@@ -28,6 +32,7 @@ public class ConcurrentFileManagerTest {
     private final Path subFolder = new File(folder + "/subFolderForSwingWorkerFileManagementTests").toPath();
     private final Path anotherFolder = new File(userTempFolder + "swingWorkerFileManagementTestFolder2").toPath();
     private static boolean deletePathnameTestsPassed = false;
+    private final CopyJobCompletionListener jobCompletionListener = new CopyJobCompletionListener(fileManager);
 
     @Before
     public void setup() {
@@ -116,7 +121,7 @@ public class ConcurrentFileManagerTest {
         }
 
         try {
-            ((BasicFileManager)fileManager).setDesktopOpenDisabled(true);   // Prevents file from being open in next statement
+            ((FileManager)fileManager).setDesktopOpenDisabled(true);   // Prevents file from being open in next statement
             fileManager.openPathname(file);
         } catch (UnsupportedOperationException e) {
             Assert.fail("current platform does not support the Desktop class, does not support the Desktop.Action.OPEN action, or is headless");
@@ -134,7 +139,7 @@ public class ConcurrentFileManagerTest {
     }
 
     @Test
-    public void testCopyProvider() {
+    public void testCopyPathname() {
         if (deletePathnameTestsPassed == false) Assert.fail("testings of pathnameCopyProviders method depends on deletePathname testing, one or assertions for which failed");
 
         // Prepare a temp folder with files and folders to copy
@@ -168,7 +173,10 @@ public class ConcurrentFileManagerTest {
         }
 
         // ASSERTION SET 1: Copy a single file to a non-existing target folder (recursion enabled but isn't applicable in the case of a file as the sourcePathname)
-        BackgroundCopyWorker worker1 = fileManager.copyProvider(fileToCopy, anotherFolder, true, false, false);
+        ConcurrentFileManager.BackgroundCopyWorker worker1 = ((ConcurrentFileManager)fileManager).getBackgroundCopyWorker(fileToCopy, anotherFolder);
+        worker1.setRecursionEnabled(true);
+        worker1.setOverwriteExistingFiles(false);
+        worker1.setOverwriteIfSizeDiffers(false);
         try {
             worker1.execute();
 
@@ -191,7 +199,10 @@ public class ConcurrentFileManagerTest {
         }
 
         // ASSERTION SET 2: Copy folder contents to a non-existing target folder with folder recursion disabled
-        BackgroundCopyWorker worker2 = fileManager.copyProvider(folder, anotherFolder, false, false, false);
+        ConcurrentFileManager.BackgroundCopyWorker worker2 = ((ConcurrentFileManager)fileManager).getBackgroundCopyWorker(folder, anotherFolder);
+        worker2.setRecursionEnabled(false);
+        worker2.setOverwriteExistingFiles(false);
+        worker2.setOverwriteIfSizeDiffers(false);
         try {
             worker2.execute();
             Assert.assertTrue("non-recursive copying of a folder, BackgroundCopyWorker.get() method returns true", worker2.get());
@@ -214,11 +225,20 @@ public class ConcurrentFileManagerTest {
             Assert.fail("IOException while deleting folder following assertion of non-recursive copying of a folder: " + anotherFolder);
         }
 
+        try { Thread.sleep(500); } catch (InterruptedException e) { }
+
         // ASSERTION SET 3: Copy a folder, with the contents of all subfolders, to a target folder (folder recursion enabled)
-        BackgroundCopyWorker worker3 = fileManager.copyProvider(folder, anotherFolder, true, false, false);
-        try {
+        ConcurrentFileManager.BackgroundCopyWorker worker3 = ((ConcurrentFileManager)fileManager).getBackgroundCopyWorker(folder, anotherFolder);
+        worker3.setRecursionEnabled(true);
+        worker3.setOverwriteExistingFiles(false);
+        worker3.setOverwriteIfSizeDiffers(false);
+//        try {
             worker3.execute();
-            Assert.assertTrue("recursive copying of a folder, BackgroundCopyWorker.get() method returns true", worker3.get());
+            //Assert.assertTrue("recursive copying of a folder, BackgroundCopyWorker.get() method returns true", worker3.get());
+
+            fileManager.addPropertyChangeListener(folder.toString(), jobCompletionListener);
+            jobCompletionListener.setJob(folder);
+            jobCompletionListener.waitForJobCompletion();
 
             Assert.assertEquals("recursive copying of a folder, created two pathnames in target folder", 3, getChildCount(anotherFolder));
 
@@ -231,14 +251,13 @@ public class ConcurrentFileManagerTest {
 
             fileNameToCheck = anotherFileToCopy.getName(anotherFileToCopy.getNameCount() - 1);
             Assert.assertTrue("recursive copying of a folder, copied a file into a folder within the target folder", Files.isRegularFile(folderPathToCheck.resolve(fileNameToCheck), LinkOption.NOFOLLOW_LINKS));
-        } catch (InterruptedException e) {
-            Assert.fail("InterruptedException during BackgroundCopyWorker execution, recursive copying of a folder");
-        } catch (ExecutionException e) {
-            Assert.fail(e.getCause().getClass().getSimpleName() + " during BackgroundCopyWorker execution, recursive copying of a folder - " + e.getCause().getMessage() );
-        }
+//        } catch (InterruptedException e) {
+//            Assert.fail("InterruptedException during BackgroundCopyWorker execution, recursive copying of a folder");
+//        } catch (ExecutionException e) {
+//            Assert.fail(e.getCause().getClass().getSimpleName() + " during BackgroundCopyWorker execution, recursive copying of a folder - " + e.getCause().getMessage() );
+//        }
 
-        // ASSERTION SET 4: Repeat
-
+        Assert.assertEquals("tracked copy jobs have been been removed from class' internal map", 0, ((ConcurrentFileManager)fileManager).copyJobs.size());
 
         // Cleanup
         try {
@@ -247,11 +266,6 @@ public class ConcurrentFileManagerTest {
         } catch (IOException e) {
             Assert.fail("IOException while attempting to delete temporary folder tree");
         }
-    }
-
-    @Test
-    public void testCopyProviders() {
-        // TODO test for getPathnameCopyProviders method
     }
 
     private int getChildCount(Path pathname) {
@@ -270,6 +284,79 @@ public class ConcurrentFileManagerTest {
         }
 
         return count;
+    }
+
+    /**
+     * Custom PropertyChangeLister for detecting when a copy job has been completed.
+     */
+    private static class CopyJobCompletionListener implements PropertyChangeListener {
+
+        private FileManager propertyChangeSupporter;
+        private Path jobName;
+        private AtomicBoolean completionDetected = new AtomicBoolean(false);
+        private Object lock = new Object();
+
+        /**
+         * Constructor for CopyJobCompletionListener class
+         *
+         * @param propertyChangeSupporter   the FileManager with which the listener will be registered/unregistered
+         */
+        public CopyJobCompletionListener(FileManager propertyChangeSupporter) {
+            if (propertyChangeSupporter == null) throw new IllegalArgumentException("null reference to PropertyChangeSupport object");
+            this.propertyChangeSupporter = propertyChangeSupporter;
+        }
+
+        /**
+         *
+         * @param sourcePathBeingCopied
+         */
+        public void setJob(Path sourcePathBeingCopied) {
+            if (sourcePathBeingCopied != null) {
+                if (jobName != null) propertyChangeSupporter.removePropertyChangeListener(jobName.toString(), this);
+
+                completionDetected.set(false);
+                propertyChangeSupporter.addPropertyChangeListener(sourcePathBeingCopied.toString(), this);
+                jobName = sourcePathBeingCopied;
+            }
+        }
+
+        public void propertyChange(PropertyChangeEvent e) {
+            String propertyName = e.getPropertyName();
+
+            if (propertyName.equals(jobName.toString())) {
+                Object newValue = e.getNewValue();
+                Object oldValue = e.getOldValue();
+
+                if ((newValue != null) && (newValue instanceof SimpleImmutableEntry) && (((SimpleImmutableEntry<String, Integer>)newValue).getKey().equals("totalCopyProgress")) && (((SimpleImmutableEntry<String, Integer>)newValue).getValue() == 100)) {
+                    completionDetected.set(true);
+                    propertyChangeSupporter.removePropertyChangeListener(jobName.toString(), this);
+                    jobName = null;
+
+                    synchronized(lock) {
+                        lock.notify();
+                    }
+                }
+
+
+            }
+        }
+
+        public void waitForJobCompletion() {
+            if (jobName != null) {
+                synchronized (lock) {
+                    while (!completionDetected.get()) {
+                        try {
+                            lock.wait();
+                        } catch (InterruptedException e) {
+                            // Ignore interrupt
+                        }
+                    }
+                }
+                completionDetected.set(false);
+            } else {
+                throw new IllegalStateException("job name (sourcePathname) has not been provided");
+            }
+        }
     }
 
 } // class ConcurrentFileManagerTest

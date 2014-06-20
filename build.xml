@@ -17,9 +17,7 @@
     <property name="build.report.cobertura.dir" value="${report.dir}${file.separator}cobertura"
               description="report directory used by Cobertura code coverage"/>
 
-    <!-- this sets up the classpath for the project. Whenever you a .jar to the lib directory it will automatically be
-        be added to the classpath
-    -->
+    <!-- this sets up the classpath for the project. Whenever you add a jar to the lib directory it will be automatically added to the classpath -->
     <path id="project.classpath" description="the project's classpath - all third party libs are on it">
         <pathelement path="${classes.dir}"/>
         <fileset dir="${lib.dir}">
@@ -126,7 +124,7 @@
 
         <cobertura-report format="html" srcdir="${src.dir}" destdir="${build.report.cobertura.dir}"/>
 
-        <!-- if a test fails then the property  "test_failure" will be set and we fail now.
+        <!-- if a test fails then the property "test_failure" will be set and we fail now.
          Failing now, rather than when the test actually failed, allows all the tests to complete and the report
          to be generated. 
          -->

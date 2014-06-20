@@ -16,17 +16,17 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ExecutionException;
+import java.util.AbstractMap.SimpleImmutableEntry;
 
 /**
  * File management class defining methods for the acquisition of SwingWorker instances to be used for potentially
  * long-running file copy operations
  */
-class ConcurrentFileManager extends BasicFileManager {
+class ConcurrentFileManager extends FileManager {
 
     private int workerThreadLimit;
-    private Map<Path, Map<Path, Integer>> copyJobs = Collections.synchronizedMap(new HashMap<Path, Map<Path, Integer>>(10));
+    protected Map<Path, Map<Path, Integer>> copyJobs = Collections.synchronizedMap(new HashMap<Path, Map<Path, Integer>>(10));
 
     protected ConcurrentFileManager(int workerThreadLimit) {
         this.workerThreadLimit = workerThreadLimit;
@@ -50,25 +50,31 @@ class ConcurrentFileManager extends BasicFileManager {
     public boolean copyPathname(Path sourcePathname, Path targetPathname, boolean recursionEnabled, boolean overwriteFile, boolean ifSizeDiffers) {
         if ((sourcePathname == null) || (targetPathname == null)) throw new NullPointerException("null pathname provided for source or target");
 
-        // Ensure no two jobs are copying
-        Set<Path> jobs = copyJobs.keySet();
-        synchronized(copyJobs) {
-            for (Path activeJob : jobs) {
-                if (activeJob.startsWith(sourcePathname)) {
-                    return false;
-                }
-            }
+        boolean copyJobStarted = false;
+
+        BackgroundCopyWorker copyJob = getBackgroundCopyWorker(sourcePathname, targetPathname);
+        if (copyJob != null) {
+            copyJob.setOverwriteExistingFiles(overwriteFile);
+            copyJob.setOverwriteIfSizeDiffers(ifSizeDiffers);
+            copyJob.setRecursionEnabled(recursionEnabled);
+
+            copyJob.execute();
+            copyJobStarted = true;
         }
-        copyJobs.put(sourcePathname, Collections.synchronizedMap(new HashMap<Path, Integer>(200)));
 
-        BackgroundCopyWorker worker = new BackgroundCopyWorker(sourcePathname, targetPathname);
-        worker.setOverwriteExistingFiles(overwriteFile);
-        worker.setOverwriteIfSizeDiffers(ifSizeDiffers);
-        worker.setRecursionEnabled(recursionEnabled);
+        return copyJobStarted;
+    }
 
-        worker.execute();
+    protected BackgroundCopyWorker getBackgroundCopyWorker(Path sourcePathname, Path targetPathname) {
+        BackgroundCopyWorker worker = null;
 
-        return true;
+        // Ensure another job with the same sourcePathname is not already in progress
+        if (!copyJobs.containsKey(sourcePathname)) {
+            copyJobs.put(sourcePathname, Collections.synchronizedMap(new HashMap<Path, Integer>(200)));
+            worker = new BackgroundCopyWorker(sourcePathname, targetPathname);
+        }
+
+        return worker;
     }
 
     // TODO Following code commented out but is to be worked into support for more than one concurrent worker thread
@@ -103,7 +109,7 @@ class ConcurrentFileManager extends BasicFileManager {
      * while providing
      * progress updates in the form of an Integer representing the percentage of the copy operation that is complete
      */
-    protected class BackgroundCopyWorker extends SwingWorker<Boolean, AbstractMap.SimpleImmutableEntry<Path, Integer>> {
+    class BackgroundCopyWorker extends SwingWorker<Boolean, SimpleImmutableEntry<Path, Integer>> {
 
         private Path sourcePathname;
         private Path targetPathname;
@@ -162,23 +168,23 @@ class ConcurrentFileManager extends BasicFileManager {
          * @param chunks    Updates published by the SwingWorkers working thread ("doInBackground" method)
          */
         @Override
-        public void process(List<AbstractMap.SimpleImmutableEntry<Path, Integer>> chunks) {
-            for (AbstractMap.SimpleImmutableEntry<Path, Integer> pair : chunks) {
+        public void process(List<SimpleImmutableEntry<Path, Integer>> chunks) {
+            for (SimpleImmutableEntry<Path, Integer> pair : chunks) {
                 Map<Path, Integer> copyJobProgressions = copyJobs.get(this.sourcePathname);
 
-                String propertyName;
+                String descriptor;
                 if (pair.getKey().equals(this.targetPathname)) {
-                    propertyName = "totalCopyProgress";
+                    descriptor = "totalCopyProgress";
                 } else {
-                    propertyName = "currentCopyProgress";
+                    descriptor = this.targetPathname.toString();
                 }
 
                 Integer oldValue = copyJobProgressions.put(pair.getKey(), pair.getValue());
                 if ((oldValue == null) || (!oldValue.equals(pair.getValue()))) {
                     // Fire property change event on "pcs" (property change support) object of this ConcurrentFileManager's inherited FileManager class
-                    pcs.firePropertyChange(propertyName,
-                                           new AbstractMap.SimpleImmutableEntry<Path, AbstractMap.SimpleImmutableEntry<Path, Integer>>(this.sourcePathname, new AbstractMap.SimpleImmutableEntry<Path, Integer>(pair.getKey(), oldValue)),
-                                           new AbstractMap.SimpleImmutableEntry<Path, AbstractMap.SimpleImmutableEntry<Path, Integer>>(this.sourcePathname, pair));
+                    pcs.firePropertyChange(this.sourcePathname.toString(),
+                                           new SimpleImmutableEntry<String, Integer>(descriptor, oldValue),
+                                           new SimpleImmutableEntry<String, Integer>(descriptor, pair.getValue()));
                 }
             }
         }
@@ -190,21 +196,20 @@ class ConcurrentFileManager extends BasicFileManager {
         public void done() {
             setProgress(100);
 
-            Map<Path, Integer> copyJobProgressions = copyJobs.get(this.sourcePathname);
-
-            Integer oldValue = copyJobProgressions.put(this.targetPathname, 100);
-            pcs.firePropertyChange("totalCopyProgress",
-                                   new AbstractMap.SimpleImmutableEntry<Path, AbstractMap.SimpleImmutableEntry<Path, Integer>>(this.sourcePathname, new AbstractMap.SimpleImmutableEntry<Path, Integer>(this.targetPathname, oldValue)),
-                                   new AbstractMap.SimpleImmutableEntry<Path, AbstractMap.SimpleImmutableEntry<Path, Integer>>(this.sourcePathname, new AbstractMap.SimpleImmutableEntry<Path, Integer>(this.targetPathname, 100)));
-
+            Integer oldValue = copyJobs.get(this.sourcePathname).put(this.targetPathname, 100);
             copyJobs.remove(this.sourcePathname);
 
+            pcs.firePropertyChange(this.sourcePathname.toString(),
+                    new SimpleImmutableEntry<String, Integer>("totalCopyProgress", oldValue),
+                    new SimpleImmutableEntry<String, Integer>("totalCopyProgress", 100));
+
+            // Notify property change listeners of unhandled exceptions that occurred within this SwingWorker's doInBackground method
             try {
                 get();
             } catch (InterruptedException e) {
-                pcs.firePropertyChange("exception", null, new AbstractMap.SimpleImmutableEntry<Path, Throwable>(this.sourcePathname, e));
+                pcs.firePropertyChange(this.sourcePathname.toString(), null, e);
             } catch (ExecutionException e) {
-                pcs.firePropertyChange("exception", null, new AbstractMap.SimpleImmutableEntry<Path, Throwable>(this.sourcePathname, e.getCause()));
+                pcs.firePropertyChange(this.sourcePathname.toString(), null, e.getCause());
             }
         }
 
@@ -278,7 +283,7 @@ class ConcurrentFileManager extends BasicFileManager {
                 if (!Files.exists(targetPathname)) {
                     targetPathname = Files.createDirectories(targetPathname);
                     if (targetPathname.equals(this.targetPathname)) {
-                        publish(new AbstractMap.SimpleImmutableEntry(targetPathname, 0));
+                        publish(new SimpleImmutableEntry(targetPathname, 0));
                     }
                 }
 
@@ -297,7 +302,7 @@ class ConcurrentFileManager extends BasicFileManager {
                             targetPathname = targetPathname.resolve(folderToCreate);
 
                             Files.createDirectory(targetPathname);
-                            publish(new AbstractMap.SimpleImmutableEntry(targetPathname, 100));
+                            publish(new SimpleImmutableEntry(targetPathname, 100));
 
                         }
 
@@ -332,25 +337,25 @@ class ConcurrentFileManager extends BasicFileManager {
                             totalPercentCopied = (int) (++copiedBytes * 100 / totalBytes);
                             if ((getProgress() != totalPercentCopied) && (totalPercentCopied != 100)) {
                                 setProgress(totalPercentCopied);
-                                publish(new AbstractMap.SimpleImmutableEntry(this.targetPathname, getProgress()));
+                                publish(new SimpleImmutableEntry(this.targetPathname, getProgress()));
                             }
 
                             filePercentCopied = (int) (++soFar * 100 / fileBytes);
                             if ((fileProgress != filePercentCopied) && (filePercentCopied != 100)) {
                                 fileProgress = filePercentCopied;
-                                publish(new AbstractMap.SimpleImmutableEntry(targetPathname, fileProgress));
+                                publish(new SimpleImmutableEntry(targetPathname, fileProgress));
                             }
                         }
 
                         fileProgress = 100;
-                        publish(new AbstractMap.SimpleImmutableEntry(targetPathname, 100));
+                        publish(new SimpleImmutableEntry(targetPathname, 100));
 
                     } catch (SecurityException | IOException e) {
                         noErrors = false;
 
                         setProgress((int) ((totalPercentPreviouslyCopied + fileBytes) * 100 / totalBytes));
-                        publish(new AbstractMap.SimpleImmutableEntry(this.targetPathname, getProgress()));
-                        publish(new AbstractMap.SimpleImmutableEntry(targetPathname, null));
+                        publish(new SimpleImmutableEntry(this.targetPathname, getProgress()));
+                        publish(new SimpleImmutableEntry(targetPathname, null));
 
                         try {
                             if (Files.exists(targetPathname) && ((targetPathname.toFile().length() == 0L) || (soFar > 0))) {

@@ -2,24 +2,34 @@ package FileSieve.BusinessLogic.FileManagement;
 
 import java.awt.Desktop;
 import java.awt.GraphicsEnvironment;
+import java.beans.PropertyChangeListener;
+import java.beans.PropertyChangeSupport;
 import java.io.IOException;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.util.AbstractMap;
 
 /**
  * Basic file management class with default implementations for deleting and opening files and folders
- *
- * @param <T>   Type returned by the FileManager interface's copyProvider method
  */
-abstract class BasicFileManager<T> implements FileManager<T> {
+abstract class BasicFileManager implements FileManager {
 
     private boolean disableDesktopOpenMethod = false;
+    protected final PropertyChangeSupport pcs = new PropertyChangeSupport(this);
+
+    public void addPropertyChangeListener(PropertyChangeListener listener) {
+        this.pcs.addPropertyChangeListener(listener);
+    }
+
+    public void removePropertyChangeListener(PropertyChangeListener listener) {
+        this.pcs.removePropertyChangeListener(listener);
+    }
 
     /**
-     * Prevents the Desktop.open method from being called by the openPathname method during JUnit testing.
+     * Prevents the Desktop.open method from being called within the class' openPathname method during JUnit testing.
      * Flag holds for only one client call of the "openPathname" method.
      *
      * @param disableFileOpen                   pass a value of "true "if Desktop.open method is to be disable for testing

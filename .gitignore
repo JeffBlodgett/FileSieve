@@ -37,3 +37,8 @@ nbbuild.xml
 /nbproject/
 /build/
 /out/
+
+# code coverage #
+#################
+cobertura.ser
+/lib/cobertura/

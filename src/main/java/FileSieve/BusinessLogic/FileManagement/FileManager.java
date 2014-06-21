@@ -14,7 +14,7 @@ import java.nio.file.attribute.BasicFileAttributes;
 /**
  * Basic file management class with default implementations for deleting and opening files and folders
  */
-abstract class FileManager implements FileOpener, FileDeleter, FileCopier {
+public abstract class FileManager implements FileOpener, FileDeleter, FileCopier {
 
     private boolean disableDesktopOpenMethod = false;
     protected final PropertyChangeSupport pcs = new PropertyChangeSupport(this);

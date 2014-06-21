@@ -199,18 +199,18 @@ class ConcurrentFileManager extends FileManager {
             Integer oldValue = copyJobs.get(this.sourcePathname).put(this.targetPathname, 100);
             copyJobs.remove(this.sourcePathname);
 
-            pcs.firePropertyChange(this.sourcePathname.toString(),
-                    new SimpleImmutableEntry<String, Integer>("totalCopyProgress", oldValue),
-                    new SimpleImmutableEntry<String, Integer>("totalCopyProgress", 100));
-
             // Notify property change listeners of unhandled exceptions that occurred within this SwingWorker's doInBackground method
             try {
                 get();
             } catch (InterruptedException e) {
                 pcs.firePropertyChange(this.sourcePathname.toString(), null, e);
             } catch (ExecutionException e) {
-                pcs.firePropertyChange(this.sourcePathname.toString(), null, e.getCause());
+                pcs.firePropertyChange(this.sourcePathname.toString(), null, e);
             }
+
+            pcs.firePropertyChange(this.sourcePathname.toString(),
+                    new SimpleImmutableEntry<String, Integer>("totalCopyProgress", oldValue),
+                    new SimpleImmutableEntry<String, Integer>("totalCopyProgress", 100));
         }
 
         /**

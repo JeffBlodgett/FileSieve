@@ -19,6 +19,6 @@ interface FileCopier {
      * @param ifSizeDiffers     if "overwriteExisting" argument is true, overwrites existing files only if their size differs
      * @return                  boolean true if the copy operation is begun or has succeeded, false if not
      */
-    public boolean copyPathname(Path sourcePathname, Path targetPathname, boolean recursionEnabled, boolean overwriteExisting, boolean ifSizeDiffers) throws IOException;
+    public boolean copyPathname(Path sourcePathname, Path targetPathname, boolean recursionEnabled, boolean overwriteExisting, boolean ifSizeDiffers);
 
 } // interface FileManager

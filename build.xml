@@ -35,8 +35,6 @@
 
     <taskdef classpathref="cobertura.classpath" resource="tasks.properties"/>
 
-
-
     <!-- targets follow - each target does one thing in the compile, run, test and build process -->
 
     <target name="clean" description="deletes all build artifacts (anything created by this build file)">

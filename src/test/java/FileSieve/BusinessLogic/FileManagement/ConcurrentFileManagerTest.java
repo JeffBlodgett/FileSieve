@@ -25,7 +25,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 public class ConcurrentFileManagerTest {
 
-    private final FileManager fileManager = FileManagerFactory.getFileManager();
+    private final FileManager<Boolean> fileManager = FileManagerFactory.getFileManager();
     private final String userTempFolder = System.getProperty("java.io.tmpdir");
     private final Path file = new File(userTempFolder + "swingWorkerFileManagementTestFile.txt").toPath();
     private final Path folder = new File(userTempFolder + "swingWorkerFileManagementTestFolder").toPath();
@@ -139,7 +139,7 @@ public class ConcurrentFileManagerTest {
 
     @Test
     public void testCopyPathname() {
-        if (deletePathnameTestsPassed == false) Assert.fail("testings of pathnameCopyProviders method depends on deletePathname testing, one or assertions for which failed");
+        if (!deletePathnameTestsPassed) Assert.fail("testings of pathnameCopyProviders method depends on deletePathname testing, one or assertions for which failed");
 
         // Prepare a temp folder with files and folders to copy
         try {
@@ -172,84 +172,96 @@ public class ConcurrentFileManagerTest {
         }
 
         // ASSERTION SET 1: Copy a single file to a non-existing target folder (recursion enabled but isn't applicable in the case of a file as the sourcePathname)
-        if (fileManager.copyPathname(fileToCopy, anotherFolder, true, false, false)) {
-            try {
-                // Use this test class' custom CopyJobCompletionListener for detecting when the SwingWorker is truly finished
-                CopyJobCompletionListener jobCompletionListener = new CopyJobCompletionListener(fileManager, fileToCopy);
-                fileManager.addPropertyChangeListener(fileToCopy.toString(), jobCompletionListener);
-                jobCompletionListener.waitForJobCompletion();   // rethrows interrupted exception from SwingWorker internals
+        try {
+            if (fileManager.copyPathname(fileToCopy, anotherFolder, true, false, false)) {
+                try {
+                    // Use this test class' custom CopyJobCompletionListener for detecting when the SwingWorker is truly finished
+                    CopyJobCompletionListener jobCompletionListener = new CopyJobCompletionListener(fileManager, fileToCopy);
+                    fileManager.addPropertyChangeListener(fileToCopy.toString(), jobCompletionListener);
+                    jobCompletionListener.waitForJobCompletion();   // rethrows interrupted exception from SwingWorker internals
 
-                Assert.assertEquals("copying of a file to a new folder, created one pathname in target folder", 1, getChildCount(anotherFolder));
+                    Assert.assertEquals("copying of a file to a new folder, created one pathname in target folder", 1, getChildCount(anotherFolder));
 
-                Path fileNameToCheck = fileToCopy.getName(fileToCopy.getNameCount() - 1);
-                Assert.assertTrue("copying of a file to a new folder, copy of file exists in targetPathname", Files.isRegularFile(new File(anotherFolder.resolve(fileNameToCheck).toString()).toPath()));
-            } catch (InterruptedException e) {
-                Assert.fail("InterruptedException during BackgroundCopyWorker execution, copying of a file to a new folder");
-            } catch (ExecutionException e) {
-                Assert.fail(e.getCause().getClass().getSimpleName() + " during BackgroundCopyWorker execution, copying of a file to a new folder - " + e.getCause().getMessage());
+                    Path fileNameToCheck = fileToCopy.getName(fileToCopy.getNameCount() - 1);
+                    Assert.assertTrue("copying of a file to a new folder, copy of file exists in targetPathname", Files.isRegularFile(new File(anotherFolder.resolve(fileNameToCheck).toString()).toPath()));
+                } catch (InterruptedException e) {
+                    Assert.fail("InterruptedException during BackgroundCopyWorker execution, copying of a file to a new folder");
+                } catch (ExecutionException e) {
+                    Assert.fail(e.getCause().getClass().getSimpleName() + " during BackgroundCopyWorker execution, copying of a file to a new folder - " + e.getCause().getMessage());
+                }
+                try {
+                    fileManager.deletePathname(anotherFolder);
+                } catch (IOException e) {
+                    Assert.fail("IOException while deleting folder following assertion of non-recursive copying of a folder - " + anotherFolder);
+                }
+            } else {
+                Assert.fail("copying of a file to a new folder, could not start copy job");
             }
-            try {
-                fileManager.deletePathname(anotherFolder);
-            } catch (IOException e) {
-                Assert.fail("IOException while deleting folder following assertion of non-recursive copying of a folder - " + anotherFolder);
-            }
-        } else {
-            Assert.fail("copying of a file to a new folder, could not start copy job");
+        } catch (IOException e) {
+            // Ignore exception - not thrown by this FileManager implementation
         }
 
         // ASSERTION SET 2: Copy folder contents to a non-existing target folder with folder recursion disabled
-        if (fileManager.copyPathname(folder, anotherFolder, false, false, false)) {
-            try {
-                CopyJobCompletionListener jobCompletionListener = new CopyJobCompletionListener(fileManager, folder);
-                fileManager.addPropertyChangeListener(folder.toString(), jobCompletionListener);
-                jobCompletionListener.waitForJobCompletion();
+        try {
+            if (fileManager.copyPathname(folder, anotherFolder, false, false, false)) {
+                try {
+                    CopyJobCompletionListener jobCompletionListener = new CopyJobCompletionListener(fileManager, folder);
+                    fileManager.addPropertyChangeListener(folder.toString(), jobCompletionListener);
+                    jobCompletionListener.waitForJobCompletion();
 
-                Assert.assertEquals("non recursive copying of a folder, created two pathnames in target folder", 2, getChildCount(anotherFolder));
+                    Assert.assertEquals("non recursive copying of a folder, created two pathnames in target folder", 2, getChildCount(anotherFolder));
 
-                Path fileNameToCheck = fileToCopy.getName(fileToCopy.getNameCount() - 1);
-                Assert.assertTrue("non-recursive copying of a folder, copied a file into the target folder", Files.isRegularFile(anotherFolder.resolve(fileNameToCheck), LinkOption.NOFOLLOW_LINKS));
+                    Path fileNameToCheck = fileToCopy.getName(fileToCopy.getNameCount() - 1);
+                    Assert.assertTrue("non-recursive copying of a folder, copied a file into the target folder", Files.isRegularFile(anotherFolder.resolve(fileNameToCheck), LinkOption.NOFOLLOW_LINKS));
 
-                Path folderNameToCheck = subFolder.getName(subFolder.getNameCount() - 1);
-                Assert.assertTrue("non-recursive copying of a folder, created an empty folder within target folder", Files.isDirectory(anotherFolder.resolve(folderNameToCheck)));
-            } catch (InterruptedException e) {
-                Assert.fail("InterruptedException during BackgroundCopyWorker execution, non-recursive copying of a folder");
-            } catch (ExecutionException e) {
-                Assert.fail(e.getCause().getClass().getSimpleName() + " during BackgroundCopyWorker execution, non-recursive copying of a folder - " + e.getCause().getMessage());
+                    Path folderNameToCheck = subFolder.getName(subFolder.getNameCount() - 1);
+                    Assert.assertTrue("non-recursive copying of a folder, created an empty folder within target folder", Files.isDirectory(anotherFolder.resolve(folderNameToCheck)));
+                } catch (InterruptedException e) {
+                    Assert.fail("InterruptedException during BackgroundCopyWorker execution, non-recursive copying of a folder");
+                } catch (ExecutionException e) {
+                    Assert.fail(e.getCause().getClass().getSimpleName() + " during BackgroundCopyWorker execution, non-recursive copying of a folder - " + e.getCause().getMessage());
+                }
+                try {
+                    fileManager.deletePathname(anotherFolder);
+                } catch (IOException e) {
+                    Assert.fail("IOException while deleting folder following assertion of non-recursive copying of a folder: " + anotherFolder);
+                }
+            } else {
+                Assert.fail("non-recursive copying of a folder, could not start copy job");
             }
-            try {
-                fileManager.deletePathname(anotherFolder);
-            } catch (IOException e) {
-                Assert.fail("IOException while deleting folder following assertion of non-recursive copying of a folder: " + anotherFolder);
-            }
-        } else {
-            Assert.fail("non-recursive copying of a folder, could not start copy job");
+        }  catch (IOException e) {
+            // Ignore exception - not thrown by this FileManager implementation
         }
 
         // ASSERTION SET 3: Copy a folder, with the contents of all subfolders, to a target folder (folder recursion enabled)
-        if (fileManager.copyPathname(folder, anotherFolder, true, false, false)) {
-            try {
-                CopyJobCompletionListener jobCompletionListener = new CopyJobCompletionListener(fileManager, folder);
-                fileManager.addPropertyChangeListener(folder.toString(), jobCompletionListener);
-                jobCompletionListener.waitForJobCompletion();
+        try {
+            if (fileManager.copyPathname(folder, anotherFolder, true, false, false)) {
+                try {
+                    CopyJobCompletionListener jobCompletionListener = new CopyJobCompletionListener(fileManager, folder);
+                    fileManager.addPropertyChangeListener(folder.toString(), jobCompletionListener);
+                    jobCompletionListener.waitForJobCompletion();
 
-                Assert.assertEquals("recursive copying of a folder, created two pathnames in target folder", 3, getChildCount(anotherFolder));
+                    Assert.assertEquals("recursive copying of a folder, created two pathnames in target folder", 3, getChildCount(anotherFolder));
 
-                Path fileNameToCheck = fileToCopy.getName(fileToCopy.getNameCount() - 1);
-                Assert.assertTrue("recursive copying of a folder, copied a file into the target folder", Files.isRegularFile(anotherFolder.resolve(fileNameToCheck), LinkOption.NOFOLLOW_LINKS));
+                    Path fileNameToCheck = fileToCopy.getName(fileToCopy.getNameCount() - 1);
+                    Assert.assertTrue("recursive copying of a folder, copied a file into the target folder", Files.isRegularFile(anotherFolder.resolve(fileNameToCheck), LinkOption.NOFOLLOW_LINKS));
 
-                Path folderNameToCheck = subFolder.getName(subFolder.getNameCount() - 1);
-                Path folderPathToCheck = anotherFolder.resolve(folderNameToCheck);
-                Assert.assertTrue("recursive copying of a folder, created a folder within target folder", Files.isDirectory(folderPathToCheck));
+                    Path folderNameToCheck = subFolder.getName(subFolder.getNameCount() - 1);
+                    Path folderPathToCheck = anotherFolder.resolve(folderNameToCheck);
+                    Assert.assertTrue("recursive copying of a folder, created a folder within target folder", Files.isDirectory(folderPathToCheck));
 
-                fileNameToCheck = anotherFileToCopy.getName(anotherFileToCopy.getNameCount() - 1);
-                Assert.assertTrue("recursive copying of a folder, copied a file into a folder within the target folder", Files.isRegularFile(folderPathToCheck.resolve(fileNameToCheck), LinkOption.NOFOLLOW_LINKS));
-            } catch (InterruptedException e) {
-                Assert.fail("InterruptedException during BackgroundCopyWorker execution, recursive copying of a folder");
-            } catch (ExecutionException e) {
-                Assert.fail(e.getCause().getClass().getSimpleName() + " during BackgroundCopyWorker execution, recursive copying of a folder - " + e.getCause().getMessage());
+                    fileNameToCheck = anotherFileToCopy.getName(anotherFileToCopy.getNameCount() - 1);
+                    Assert.assertTrue("recursive copying of a folder, copied a file into a folder within the target folder", Files.isRegularFile(folderPathToCheck.resolve(fileNameToCheck), LinkOption.NOFOLLOW_LINKS));
+                } catch (InterruptedException e) {
+                    Assert.fail("InterruptedException during BackgroundCopyWorker execution, recursive copying of a folder");
+                } catch (ExecutionException e) {
+                    Assert.fail(e.getCause().getClass().getSimpleName() + " during BackgroundCopyWorker execution, recursive copying of a folder - " + e.getCause().getMessage());
+                }
+            } else {
+                Assert.fail("recursive copying of a folder, could not start copy job");
             }
-        } else {
-            Assert.fail("recursive copying of a folder, could not start copy job");
+        }  catch (IOException e) {
+            // Ignore exception - not thrown by this FileManager implementation
         }
 
         Assert.assertEquals("tracked copy jobs have been been removed from class' internal map", 0, ((ConcurrentFileManager)fileManager).copyJobs.size());
@@ -272,7 +284,7 @@ public class ConcurrentFileManagerTest {
     private int getChildCount(Path pathname) {
         int count = 0;
 
-        try (DirectoryStream<Path> dirStream = Files.newDirectoryStream(pathname);) {
+        try (DirectoryStream<Path> dirStream = Files.newDirectoryStream(pathname)) {
             for (Path path : dirStream) {
                 if (Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)) {
                     count++;

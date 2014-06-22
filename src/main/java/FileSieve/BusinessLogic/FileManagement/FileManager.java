@@ -12,16 +12,21 @@ import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 
 /**
- * Basic file management class with default implementations for deleting and opening files and folders
+ * Abstract file management class with default implementations for deleting and opening files and folders
+ *
+ * @param <T>   The type of the object returned by the copyPathname method of the FileCopier interface. In a simple
+ *              implementation this may simply be a Boolean object that indicates if the copy operation was started or
+ *              completed successfully.
  */
-public abstract class FileManager implements FileOpener, FileDeleter, FileCopier {
+public abstract class FileManager<T> implements FileOpener, FileDeleter, FileCopier<T> {
 
     private boolean disableDesktopOpenMethod = false;
     protected final PropertyChangeSupport pcs = new PropertyChangeSupport(this);
 
     /**
      * Prevents the Desktop.open method from being called within the class' openPathname method during JUnit testing.
-     * Flag holds for only one client call of the "openPathname" method.
+     * Flag holds for only one client call of the "openPathname" method. Had considered using a mock object for the
+     * Desktop instance but the runtime's Desktop instance is a singleton instantiated at runtime startup.
      *
      * @param disableFileOpen                   pass a value of "true "if Desktop.open method is to be disable for testing
      */
@@ -95,7 +100,7 @@ public abstract class FileManager implements FileOpener, FileDeleter, FileCopier
 
     /**
      * Private utility method for deleting files and folders recursively (e.g. from a folder).
-     * Posted by Trevor Robinson at:
+     * Original code posted by Trevor Robinson at:
      * http://stackoverflow.com/questions/779519/delete-files-recursively-in-java/8685959#8685959
      *
      * @param path              pathname of folder to be deleted recursively (all content will be deleted)
@@ -111,8 +116,8 @@ public abstract class FileManager implements FileOpener, FileDeleter, FileCopier
 
             @Override
             public FileVisitResult visitFileFailed(Path file, IOException exc) throws IOException {
-                // try to delete the file anyway, even if its attributes could not be read, since delete-only access is
-                // theoretically possible
+                /* try to delete the file anyway, even if its attributes could not be read, since delete-only access is
+                   theoretically possible */
                 Files.delete(file);
                 return FileVisitResult.CONTINUE;
             }

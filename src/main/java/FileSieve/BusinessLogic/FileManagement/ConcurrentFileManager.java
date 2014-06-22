@@ -21,9 +21,9 @@ import java.util.AbstractMap.SimpleImmutableEntry;
 
 /**
  * File management class defining methods for the acquisition of SwingWorker instances to be used for potentially
- * long-running file copy operations
+ * long-running file copy operations. Class is package-private.
  */
-class ConcurrentFileManager extends FileManager {
+class ConcurrentFileManager extends FileManager<Boolean> {
 
     private int workerThreadLimit;
     protected Map<Path, Map<Path, Integer>> copyJobs = Collections.synchronizedMap(new HashMap<Path, Map<Path, Integer>>(10));
@@ -40,14 +40,16 @@ class ConcurrentFileManager extends FileManager {
      * See second post at following link for hints:<br>
      * http://stackoverflow.com/questions/13574461/need-to-have-jprogress-bar-to-measure-progress-when-copying-directories-and-file
      *
-     * @param sourcePathname    pathname of file or folder to copy
-     * @param targetPathname    pathname of file or folder to create/write
-     * @param recursionEnabled  recursive search for files within subfolders
-     * @param overwriteFile     indicates if existing files in the target path should be overwritten
-     * @param ifSizeDiffers     if "overwriteExisting" argument is true, overwrites existing files only if their size differs
+     * @param sourcePathname        pathname of file or folder to copy
+     * @param targetPathname        pathname of file or folder to create/write
+     * @param recursionEnabled      recursive search for files within subfolders
+     * @param overwriteFile         indicates if existing files in the target path should be overwritten
+     * @param ifSizeDiffers         if "overwriteExisting" argument is true, overwrites existing files only if their size differs
+     * @return                      Boolean value indicating if copy job was started
+     * @throws java.io.IOException  never thrown by this implementation
      */
     @Override
-    public boolean copyPathname(Path sourcePathname, Path targetPathname, boolean recursionEnabled, boolean overwriteFile, boolean ifSizeDiffers) {
+    public Boolean copyPathname(Path sourcePathname, Path targetPathname, boolean recursionEnabled, boolean overwriteFile, boolean ifSizeDiffers) {
         if ((sourcePathname == null) || (targetPathname == null)) throw new NullPointerException("null pathname provided for source or target");
 
         boolean copyJobStarted = false;
@@ -368,21 +370,6 @@ class ConcurrentFileManager extends FileManager {
                 }
             }
         }
-
-//        private void setFileProgress(int fileProgress) {
-//            if (fileProgress == this.fileProgress) return;
-//
-//            long oldFileProgress = this.fileProgress;
-//            this.fileProgress = fileProgress;
-//
-//            if (getPropertyChangeSupport().hasListeners("fileProgress")) {
-//                firePropertyChange("fileProgress", oldFileProgress, fileProgress);
-//            }
-//        }
-//
-//        public int getFileProgress() {
-//            return fileProgress;
-//        }
 
     } // class BackgroundCopyWorker extends SwingWorker<Boolean, AbstractMap.SimpleImmutableEntry<Path, Integer>>
 

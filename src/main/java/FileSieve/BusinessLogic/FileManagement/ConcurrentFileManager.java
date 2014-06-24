@@ -10,7 +10,6 @@ import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
-import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -20,8 +19,8 @@ import java.util.concurrent.ExecutionException;
 import java.util.AbstractMap.SimpleImmutableEntry;
 
 /**
- * File management class defining methods for the acquisition of SwingWorker instances to be used for potentially
- * long-running file copy operations. Class is package-private.
+ * Concrete file manager class that inherits FileCopier and FileDeleter interface implementations from abstract class
+ * "FileManager" and provides implementations for the FileCopier interface's copyPathname method.
  */
 class ConcurrentFileManager extends FileManager<Boolean> {
 
@@ -33,16 +32,12 @@ class ConcurrentFileManager extends FileManager<Boolean> {
     }
 
     /**
-     * Method for copying a file or creating a folder to/within a target pathname. Implementers construct one
-     * SwingWorker instance per files or folder to be copied/created. SwingWorker instance is return. The caller is
-     * then responsible for starting and monitoring the SwingWorker (worker thread). This permits progress status
-     * for the copy operation to be reported to the GUI (for use by, for example, a JProgressBar).
-     * See second post at following link for hints:<br>
-     * http://stackoverflow.com/questions/13574461/need-to-have-jprogress-bar-to-measure-progress-when-copying-directories-and-file
+     * Copy's a file or folder, recursively or not, to a target pathname.
+     * // TODO overwriteFile and ifSizeDiffers arguments are currently unused
      *
      * @param sourcePathname        pathname of file or folder to copy
      * @param targetPathname        pathname of file or folder to create/write
-     * @param recursionEnabled      recursive search for files within subfolders
+     * @param recursionEnabled      recursive search for and copying of files and subfolders with subfolders of the sourcePathname
      * @param overwriteFile         indicates if existing files in the target path should be overwritten
      * @param ifSizeDiffers         if "overwriteExisting" argument is true, overwrites existing files only if their size differs
      * @return                      Boolean value indicating if copy job was started
@@ -50,7 +45,10 @@ class ConcurrentFileManager extends FileManager<Boolean> {
      */
     @Override
     public Boolean copyPathname(Path sourcePathname, Path targetPathname, boolean recursionEnabled, boolean overwriteFile, boolean ifSizeDiffers) {
-        if ((sourcePathname == null) || (targetPathname == null)) throw new NullPointerException("null pathname provided for source or target");
+        if (sourcePathname == null) throw new NullPointerException("null path provided for sourcePathname parameter");
+        if (targetPathname == null) throw new NullPointerException("null path provided for targetPathname parameter");
+
+        if (!Files.exists(sourcePathname)) throw new IllegalArgumentException("file or folder specified by sourcePathname parameter does not exist");
 
         boolean copyJobStarted = false;
 
@@ -67,7 +65,7 @@ class ConcurrentFileManager extends FileManager<Boolean> {
         return copyJobStarted;
     }
 
-    protected BackgroundCopyWorker getBackgroundCopyWorker(Path sourcePathname, Path targetPathname) {
+    private BackgroundCopyWorker getBackgroundCopyWorker(Path sourcePathname, Path targetPathname) {
         BackgroundCopyWorker worker = null;
 
         // Ensure another job with the same sourcePathname is not already in progress
@@ -79,50 +77,28 @@ class ConcurrentFileManager extends FileManager<Boolean> {
         return worker;
     }
 
-    // TODO Following code commented out but is to be worked into support for more than one concurrent worker thread
-//    /**
-//     * Convenience method for copying multiple files or folders to a target, each on its own SwingWorker (thread).
-//     * Uses the pathnameCopyProvider method defined by this class to return one SwingWorker instance per file/folder
-//     * to be copied/created.
-//     *
-//     * @param sourcePathnames   pathnames of files and folders to copy
-//     * @param targetFolder      pathname of folder to which files and folders are to be created/written
-//     * @param recursionEnabled  recursive search for files within subfolders
-//     * @param overwriteFiles    indicates if existing files in the target path should be overwritten
-//     * @param ifSizeDiffers     if "overwriteExisting" argument is true, overwrites existing files only if their size differs
-//     * @return                  Map containing instances of a SwingWorkers capable of performing the copy operations
-//     *                          and providing progress updates in the form of an Integer value representing the
-//     *                          percentage of the copy operation completed
-//     */
-//    public Map<Path, BackgroundCopyWorker> getCopyProviders(Set<Path> sourcePathnames, Path targetFolder, boolean recursionEnabled, boolean overwriteFiles, boolean ifSizeDiffers) {
-//        if ((sourcePathnames == null) || (targetFolder == null)) throw new NullPointerException("null pathname provided for sources or target");
-//
-//        // LinkedHashMap maintains a order via a doubly-linked list. Iterator can be used to traverse keys in the order in which they were inserted.
-//        Map<Path, BackgroundCopyWorker> workers = new LinkedHashMap<Path, BackgroundCopyWorker>(sourcePathnames.size());
-//        for (Path path : sourcePathnames) {
-//            workers.put(path, copyProvider(path, targetFolder, recursionEnabled, overwriteFiles, ifSizeDiffers));
-//        }
-//
-//        return workers;
-//    }
-
     /**
-     * SwingWorker capable of copying a file or folder from a source pathname to a target pathname.
-     * while providing
-     * progress updates in the form of an Integer representing the percentage of the copy operation that is complete
+     * SwingWorker capable of copying a file or folder from a source pathname to a target pathname. A
+     * PropertyChangeSupport object of the enclosing class is used to fire events to indicate overall progress of the
+     * "copy job", progress of each file copy or subfolder creation, and th;e when the copy job has finished.
+     * Original concept taken from post by "Eng.Fouad" on stackoverflow.com
+     * http://stackoverflow.com/questions/13574461/need-to-have-jprogress-bar-to-measure-progress-when-copying-directories-and-file
      */
-    class BackgroundCopyWorker extends SwingWorker<Boolean, SimpleImmutableEntry<Path, Integer>> {
+    class BackgroundCopyWorker extends SwingWorker<Void, SimpleImmutableEntry<Path, Integer>> {
 
         private Path sourcePathname;
         private Path targetPathname;
         private long totalBytes = 0L;
         private long copiedBytes = 0L;
         private int totalPercentCopied = 0;
-        private boolean noErrors = true;
+        //private boolean noErrors = true;
         boolean overwriteExistingFiles = false;
         boolean overwriteIfSizeDiffers = false;
         boolean recursionEnabled = true;
-        private volatile int fileProgress;
+        private static final int COPY_JOB_AT_100_PERCENT = 100;
+        private static final int PATHNAME_COPY_AT_100_PERCENT = 100;
+        private static final int ONE_HUNDRED_PERCENT = 100;
+        private static final int ZERO_PERCENT = 0;
 
         protected BackgroundCopyWorker(Path sourcePathname, Path targetPathname) throws IllegalArgumentException, SecurityException {
             if ((sourcePathname == null) || (targetPathname == null)) {
@@ -153,12 +129,28 @@ class ConcurrentFileManager extends FileManager<Boolean> {
             return overwriteIfSizeDiffers;
         }
 
-        public void setRecursionEnabled(boolean recursionEnabled) {
+        /**
+         * Enables or disables a recursive search for and copying of files and folders that lie within folders found
+         * in the constructor's given sourcePathname. Attempts to set this value have no effect if the copy job has
+         * already begun, or has finished.
+         *
+         * @param recursionEnabled  the true or false setting to apply to the instances
+         * @return                  the new setting applied to the instance by this method
+         */
+        public boolean setRecursionEnabled(boolean recursionEnabled) {
             if (getState() == StateValue.PENDING) {
                 this.recursionEnabled = recursionEnabled;
             }
+
+            return this.recursionEnabled;
         }
 
+        /**
+         * Returns a boolean value indicating if the worker is set to perform recursive search and copies of folders
+         * found within the sourcePathname provided to the instance's constructor.
+         *
+         * @return
+         */
         public boolean getRecursionEnabled() {
             return recursionEnabled;
         }
@@ -196,23 +188,22 @@ class ConcurrentFileManager extends FileManager<Boolean> {
          */
         @Override
         public void done() {
-            setProgress(100);
+            setProgress(COPY_JOB_AT_100_PERCENT);
 
-            Integer oldValue = copyJobs.get(this.sourcePathname).put(this.targetPathname, 100);
+            Integer oldValue = copyJobs.get(this.sourcePathname).put(this.targetPathname, COPY_JOB_AT_100_PERCENT);
             copyJobs.remove(this.sourcePathname);
 
-            // Notify property change listeners of unhandled exceptions that occurred within this SwingWorker's doInBackground method
+            /* Notify property change listeners of unhandled exceptions that occurred within this SwingWorker's
+               doInBackground method */
             try {
                 get();
-            } catch (InterruptedException e) {
-                pcs.firePropertyChange(this.sourcePathname.toString(), null, e);
-            } catch (ExecutionException e) {
+            } catch (InterruptedException | ExecutionException e) {
                 pcs.firePropertyChange(this.sourcePathname.toString(), null, e);
             }
 
             pcs.firePropertyChange(this.sourcePathname.toString(),
                     new SimpleImmutableEntry<String, Integer>("totalCopyProgress", oldValue),
-                    new SimpleImmutableEntry<String, Integer>("totalCopyProgress", 100));
+                    new SimpleImmutableEntry<String, Integer>("totalCopyProgress", COPY_JOB_AT_100_PERCENT));
         }
 
         /**
@@ -227,9 +218,7 @@ class ConcurrentFileManager extends FileManager<Boolean> {
          * @throws java.io.IOException              thrown if an IOException occurs
          */
         @Override
-        public Boolean doInBackground() throws IllegalStateException, SecurityException, IOException {
-            boolean allCopiesSuccessful = false;
-
+        public Void doInBackground() throws IllegalStateException, SecurityException, IOException {
             try {
                 if (Files.exists(sourcePathname)) {
                     retrieveTotalBytes(sourcePathname);
@@ -243,15 +232,14 @@ class ConcurrentFileManager extends FileManager<Boolean> {
             }
 
             try {
-                copyFiles(sourcePathname, targetPathname);
-                allCopiesSuccessful = true;
+                copyPaths(sourcePathname, targetPathname);
             } catch (SecurityException e) {
                 throw new SecurityException("SecurityException while reading or writing files/folders in the source or target root", e);
             } catch (IOException e) {
                 throw new SecurityException("IOException while reading or writing files/folders in the source or target root", e);
             }
 
-            return (allCopiesSuccessful && noErrors);
+            return null;
         }
 
         private void retrieveTotalBytes(Path sourcePathname) throws SecurityException, IOException {
@@ -272,26 +260,26 @@ class ConcurrentFileManager extends FileManager<Boolean> {
         }
 
         /**
-         * Called by doInBackground() method to handle folder and file copy operations. Exceptions are thrown if
+         * Utility method called by doInBackground() method to handle file and folder copy operations
          *
-         *
-         * @param sourcePathname        source file or folder that is to be copied
-         * @param targetPathname        target file or folder to be copied
-         * @throws SecurityException    thrown if
-         * @throws IOException
+         * @param sourcePath            source file or folder that is to be copied
+         * @param targetPath            target file or folder to be copied
+         * @throws SecurityException    thrown if the security manager is unable to access a file or folder as requested
+         * @throws IOException          thrown if an IOException occurs during a read or write operation
          */
-        private void copyFiles(Path sourcePathname, Path targetPathname) throws SecurityException, IOException {
-            if (!sourcePathname.equals(this.targetPathname)) {
-                if (!Files.exists(targetPathname)) {
-                    targetPathname = Files.createDirectories(targetPathname);
-                    if (targetPathname.equals(this.targetPathname)) {
-                        publish(new SimpleImmutableEntry(targetPathname, 0));
+        private void copyPaths(Path sourcePath, Path targetPath) throws SecurityException, IOException {
+            if (!sourcePath.equals(this.targetPathname)) {
+
+                if (!Files.exists(targetPath)) {
+                    targetPath = Files.createDirectories(targetPath);
+                    if (targetPath.equals(this.targetPathname)) {
+                        publish(new SimpleImmutableEntry(targetPath, ZERO_PERCENT));
                     }
                 }
 
-                if (Files.isDirectory(sourcePathname)) {
+                if (Files.isDirectory(sourcePath)) {
                     List<Path> filePaths = new ArrayList<Path>(50);
-                    try (DirectoryStream<Path> dirStream = Files.newDirectoryStream(sourcePathname)) {
+                    try (DirectoryStream<Path> dirStream = Files.newDirectoryStream(sourcePath)) {
                         for (Path path : dirStream) {
                             filePaths.add(path);
                         }
@@ -299,78 +287,93 @@ class ConcurrentFileManager extends FileManager<Boolean> {
 
                     for (Path path : filePaths) {
                         if (Files.isDirectory(path)) {
-                            Path folderToCreate = path.subpath(sourcePathname.getNameCount(), path.getNameCount());
+                            Path folderToCreate = path.subpath(sourcePath.getNameCount(), path.getNameCount());
 
-                            targetPathname = targetPathname.resolve(folderToCreate);
+                            targetPath = targetPath.resolve(folderToCreate);
 
-                            Files.createDirectory(targetPathname);
-                            publish(new SimpleImmutableEntry(targetPathname, 100));
+                            Files.createDirectory(targetPath);
+                            publish(new SimpleImmutableEntry(targetPath, PATHNAME_COPY_AT_100_PERCENT));
 
                         }
 
                         if ((Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)) || ((Files.isDirectory(path)) && recursionEnabled)) {
-                            try {
-                                copyFiles(path, targetPathname);
-                            } catch (SecurityException | IOException e) {
-                                noErrors = false;
-                                // Ignore exceptions... attempts to copy other folders/files will continue
-                            }
+                            // Recursive call: copy file or folder specified by "path" variable to the "targetPath" folder
+                            copyPaths(path, targetPath);
                         }
                     }
 
                 } else {
-                    targetPathname = targetPathname.resolve(sourcePathname.getFileName());
-
-                    long fileBytes = sourcePathname.toFile().length();
-                    long soFar = 0L;
-                    //publish(new AbstractMap.SimpleImmutableEntry(targetPathname.toString(), 0));
-
-                    int sourceByte;
-                    int filePercentCopied = 0;
-                    int totalPercentPreviouslyCopied = totalPercentCopied;
-
-                    try (
-                            BufferedInputStream bis = new BufferedInputStream(new FileInputStream(sourcePathname.toFile()));
-                            BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(targetPathname.toFile()));
-                    ) {
-                        while ((sourceByte = bis.read()) != -1) {
-                            bos.write(sourceByte);
-
-                            totalPercentCopied = (int) (++copiedBytes * 100 / totalBytes);
-                            if ((getProgress() != totalPercentCopied) && (totalPercentCopied != 100)) {
-                                setProgress(totalPercentCopied);
-                                publish(new SimpleImmutableEntry(this.targetPathname, getProgress()));
-                            }
-
-                            filePercentCopied = (int) (++soFar * 100 / fileBytes);
-                            if ((fileProgress != filePercentCopied) && (filePercentCopied != 100)) {
-                                fileProgress = filePercentCopied;
-                                publish(new SimpleImmutableEntry(targetPathname, fileProgress));
-                            }
-                        }
-
-                        fileProgress = 100;
-                        publish(new SimpleImmutableEntry(targetPathname, 100));
-
-                    } catch (SecurityException | IOException e) {
-                        noErrors = false;
-
-                        setProgress((int) ((totalPercentPreviouslyCopied + fileBytes) * 100 / totalBytes));
-                        publish(new SimpleImmutableEntry(this.targetPathname, getProgress()));
-                        publish(new SimpleImmutableEntry(targetPathname, null));
-
-                        try {
-                            if (Files.exists(targetPathname) && ((targetPathname.toFile().length() == 0L) || (soFar > 0))) {
-                                Files.delete(targetPathname);
-                            }
-                        } catch (SecurityException | IOException ex) {
-                            // Ignore exceptions - this is a best attempt at deleting the written file, which was cut short
-                        }
-                    }
+                    // Copy file specified by "sourcePath" parameter to the folder specified by the "targetPath"
+                    copyFile(sourcePath, targetPath);
                 }
             }
         }
 
-    } // class BackgroundCopyWorker extends SwingWorker<Boolean, AbstractMap.SimpleImmutableEntry<Path, Integer>>
+        /**
+         * Private helper method, called by copyPaths method, for copying a single file (the sourcePathname)
+         *
+         * @param fileToCopy            file to copy, passed as a Path
+         * @param copyTarget            folder to which copy is to be placed
+         * @throws SecurityException    thrown if the security manager denies read access to the original file or write
+         *                              access to the folder to contain the copy
+         * @throws IOException          throw if an IOException occurs during read/write operations
+         */
+        private void copyFile(Path fileToCopy, Path copyTarget) throws SecurityException, IOException {
+            copyTarget = copyTarget.resolve(fileToCopy.getFileName());
+
+            long fileBytes = fileToCopy.toFile().length();  // size of file in bytes
+            long soFar = 0L;                                // file bytes copied thus far
+
+            int sourceByte;
+            int filePercentCopied;
+            int totalPercentPreviouslyCopied = totalPercentCopied;
+            int pathnameProgress = ZERO_PERCENT;
+
+            try (
+                    BufferedInputStream bis = new BufferedInputStream(new FileInputStream(fileToCopy.toFile()));
+                    BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(copyTarget.toFile()));
+            ) {
+                /* Copy file one byte at time. BufferedInputStream and BufferedOutputStream have, well, buffers so
+                   so this isn't as slow as it might at first seem */
+                while ((sourceByte = bis.read()) != -1) {
+                    bos.write(sourceByte);
+
+                    /* Update copy job's total progress if progress has incremented by at least 1 percent and is not
+                       yet 100 percent complete */
+                    totalPercentCopied = (int) (++copiedBytes * ONE_HUNDRED_PERCENT / totalBytes);
+                    if ((getProgress() != totalPercentCopied) && (totalPercentCopied < ONE_HUNDRED_PERCENT)) {
+                        setProgress(totalPercentCopied);
+                        publish(new SimpleImmutableEntry(this.targetPathname, getProgress()));
+                    }
+
+                    /* Update the progress of the individual file copy if progress has increment by at least 1 percent
+                       and is not yet 100 percent complete */
+                    filePercentCopied = (int) (++soFar * ONE_HUNDRED_PERCENT / fileBytes);
+                    if ((pathnameProgress != filePercentCopied) && (filePercentCopied < ONE_HUNDRED_PERCENT)) {
+                        pathnameProgress = filePercentCopied;
+                        publish(new SimpleImmutableEntry(copyTarget, pathnameProgress));
+                    }
+                }
+
+                pathnameProgress = PATHNAME_COPY_AT_100_PERCENT;
+                publish(new SimpleImmutableEntry(copyTarget, PATHNAME_COPY_AT_100_PERCENT));
+
+            } catch (IOException e) {
+                setProgress((int) ((totalPercentPreviouslyCopied + fileBytes) * ONE_HUNDRED_PERCENT / totalBytes));
+                publish(new SimpleImmutableEntry(this.targetPathname, getProgress()));
+                publish(new SimpleImmutableEntry(copyTarget, null));
+
+                try {
+                    if (Files.exists(copyTarget) && ((copyTarget.toFile().length() == 0L) || (soFar > 0L))) {
+                        Files.delete(copyTarget);
+                        throw new IOException("An IOException occurred while copying a file. An incomplete copy was not left in the destination folder.", e);
+                    }
+                } catch (IOException ex) {
+                    throw new IOException("An IOException occurred while copying a file. An incomplete copy may have been left in the destination folder.", ex);
+                }
+            }
+        }
+
+    } // class BackgroundCopyWorker extends SwingWorker<Void, AbstractMap.SimpleImmutableEntry<Path, Integer>>
 
 } // class SwingWorkerFileManagement extends BasicFileManager

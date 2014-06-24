@@ -25,4 +25,4 @@ interface FileCopier<T> {
      */
     public T copyPathname(Path sourcePathname, Path targetPathname, boolean recursionEnabled, boolean overwriteExisting, boolean ifSizeDiffers) throws IOException;;
 
-} // interface FileManager
+} // interface FileCopier<T>

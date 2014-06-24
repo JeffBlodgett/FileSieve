@@ -45,7 +45,9 @@ public abstract class FileManager<T> implements FileOpener, FileDeleter, FileCop
      */
     @Override
     public boolean deletePathname(Path pathname) throws NullPointerException, SecurityException, IOException  {
-        if (pathname == null) throw new NullPointerException("null pathname provided");
+        if (pathname == null) {
+            throw new NullPointerException("null pathname provided");
+        }
 
         boolean result = false;
 
@@ -54,7 +56,7 @@ public abstract class FileManager<T> implements FileOpener, FileDeleter, FileCop
                 Files.delete(pathname);
                 result = true;
             } else {
-                removeRecursive(pathname);
+                deleteRecursively(pathname);
                 result = true;
             }
         }
@@ -76,16 +78,17 @@ public abstract class FileManager<T> implements FileOpener, FileDeleter, FileCop
     @Override
     public void openPathname(Path pathname) throws NullPointerException, UnsupportedOperationException, IllegalArgumentException, SecurityException, IOException {
         try {
-            if (pathname == null) throw new NullPointerException("null pathname provided");
+            if (pathname == null) {
+                throw new NullPointerException("null pathname provided");
+            }
 
             if (Desktop.isDesktopSupported()) {
                 if (!GraphicsEnvironment.isHeadless()) {
                     Desktop desktop = Desktop.getDesktop();
                     if (desktop.isSupported(Desktop.Action.OPEN)) {
-                        if (disableDesktopOpenMethod == false) {
+                        if (!disableDesktopOpenMethod) {
                             desktop.open(pathname.toFile());
                         }
-                        return;
                     }
                 } else {
                     throw new UnsupportedOperationException("The system is headless");
@@ -106,7 +109,7 @@ public abstract class FileManager<T> implements FileOpener, FileDeleter, FileCop
      * @param path              pathname of folder to be deleted recursively (all content will be deleted)
      * @throws IOException      thrown if the folder could not be deleted
      */
-    private static void removeRecursive(Path path) throws IOException {
+    private static void deleteRecursively(Path path) throws IOException {
         Files.walkFileTree(path, new SimpleFileVisitor<Path>() {
             @Override
             public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
@@ -151,4 +154,4 @@ public abstract class FileManager<T> implements FileOpener, FileDeleter, FileCop
         this.pcs.removePropertyChangeListener(propertyName, listener);
     }
 
-} // abstract class BasicFileManager implements FileManager
+} // abstract class FileManager<T> implements FileOpener, FileDeleter, FileCopier<T>

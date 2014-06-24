@@ -41,8 +41,6 @@
         <delete dir="${classes.dir}"/>
         <delete dir="${report.dir}"/>
         <delete dir="${build.dir}"/>
-        <delete file="cobertura.ser"/>
-        <delete file="cobertura.log"/>
     </target>
 
     <target name="init" description="Build initialization - create output directories" depends="clean">
@@ -51,7 +49,7 @@
         <mkdir dir="${report.dir}"/>
         <mkdir dir="${build.instrumented.dir}"/>
         <mkdir dir="${build.report.cobertura.dir}"/>
-        <cobertura-instrument todir="${build.instrumented.dir}">
+        <cobertura-instrument todir="${build.instrumented.dir}" datafile="${classes.dir}${file.separator}cobertura.ser">
             <fileset dir="${classes.dir}">
                 <include name="**/*.class"/>
             </fileset>
@@ -70,7 +68,7 @@
         <!--
             Remove the coverage data file and any old instrumentation.
         -->
-        <delete file="cobertura.ser"/>
+        <delete file="${classes.dir}${file.separator}cobertura.ser"/>
         <delete dir="${build.instrumented.dir}"/>
 
         <!--

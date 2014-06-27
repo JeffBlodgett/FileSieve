@@ -6,8 +6,6 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.Assert;
 
-import java.beans.PropertyChangeEvent;
-import java.beans.PropertyChangeListener;
 import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -16,16 +14,14 @@ import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
-import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * JUnit testing for the ConcurrentFileManager class
  */
-public class ConcurrentFileManagerTest {
+public class SwingWorkerBasedFileManagerTest implements CopyJobListener {
 
-    private final FileManager<Boolean> fileManager = FileManagerFactory.getFileManager();
+    private final SwingFileManager swingFileManager = FileManagerFactory.getSwingFileManager();
     private final String userTempFolder = System.getProperty("java.io.tmpdir");
     private final Path file = new File(userTempFolder + "swingWorkerFileManagementTestFile.txt").toPath();
     private final Path folder = new File(userTempFolder + "swingWorkerFileManagementTestFolder").toPath();
@@ -37,6 +33,7 @@ public class ConcurrentFileManagerTest {
     @Before
     public void setup() {
         Assume.assumeTrue("temporary file and folder used for tests should not pre-exist", !Files.exists(file) && !Files.exists(folder));
+        swingFileManager.setCopyOperationsListener(this);
     }
 
     @After
@@ -45,8 +42,8 @@ public class ConcurrentFileManagerTest {
             Files.deleteIfExists(file);
 
             if (deletePathnameTestsPassed) {
-                fileManager.deletePathname(folder);
-                fileManager.deletePathname(anotherFolder);
+                swingFileManager.deletePathname(folder);
+                swingFileManager.deletePathname(anotherFolder);
             }
         } catch (SecurityException | IOException e) {
             // Ignore exceptions
@@ -61,12 +58,12 @@ public class ConcurrentFileManagerTest {
         Path subFolderFile2 = new File(subFolder + "/testDeletePathname2.txt").toPath();
 
         try {
-            Assert.assertFalse("Attempted deletion of non-existent file should return false", fileManager.deletePathname(file));
+            Assert.assertFalse("Attempted deletion of non-existent file should return false", swingFileManager.deletePathname(file));
         } catch (SecurityException | IOException e) {
             Assert.fail(e.getClass().getSimpleName() + " while attempting to delete non-existent file \"" + file.toFile().getName() + "\" in temp folder");
         }
         try {
-            Assert.assertFalse("Attempted deletion of non-existent folder should return false", fileManager.deletePathname(folder));
+            Assert.assertFalse("Attempted deletion of non-existent folder should return false", swingFileManager.deletePathname(folder));
         } catch (SecurityException | IOException e) {
             Assert.fail(e.getClass().getSimpleName() + " while attempting to delete non-existent folder \"" + folder.toFile().getName() + "\" in temp folder");
         }
@@ -77,7 +74,7 @@ public class ConcurrentFileManagerTest {
             Assert.fail(e.getClass().getSimpleName() + " while attempting to create \"" + file.toFile().getName() + "\" file in temp folder");
         }
         try {
-            Assert.assertTrue(fileManager.deletePathname(file));
+            Assert.assertTrue(swingFileManager.deletePathname(file));
         } catch (SecurityException | IOException e) {
             Assert.fail(e.getClass().getSimpleName() +  "while attempting to delete \"" + file.toFile().getName() + "\" file in temp folder");
         }
@@ -88,7 +85,7 @@ public class ConcurrentFileManagerTest {
             Assert.fail(e.getClass().getSimpleName() + "while attempting to create \"" + folder.toFile().getName() + "\" folder in temp folder");
         }
         try {
-            Assert.assertTrue(fileManager.deletePathname(folder));
+            Assert.assertTrue(swingFileManager.deletePathname(folder));
         } catch (SecurityException | IOException e) {
             Assert.fail(e.getClass().getSimpleName() + "while attempting to delete folder hierarchy in temp folder");
         }
@@ -104,7 +101,7 @@ public class ConcurrentFileManagerTest {
             Assert.fail(e.getClass().getSimpleName() + "while attempting to create a folder hierarchy in the temp folder");
         }
         try {
-            Assert.assertTrue(fileManager.deletePathname(folder));
+            Assert.assertTrue(swingFileManager.deletePathname(folder));
         } catch (SecurityException | IOException e) {
             Assert.fail(e.getClass().getSimpleName() + "while attempting to delete a folder hierarchy in the temp folder");
         }
@@ -121,8 +118,8 @@ public class ConcurrentFileManagerTest {
         }
 
         try {
-            ((FileManager)fileManager).setDesktopOpenDisabled(true);   // Prevents file from being open in next statement
-            fileManager.openPathname(file);
+            ((AbstractFileManager) swingFileManager).setDesktopOpenDisabled(true);   // Prevents file from being open in next statement
+            swingFileManager.openPathname(file);
         } catch (UnsupportedOperationException e) {
             Assert.fail("current platform does not support the Desktop class, does not support the Desktop.Action.OPEN action, or is headless");
         } catch (SecurityException e) {
@@ -173,19 +170,17 @@ public class ConcurrentFileManagerTest {
         }
 
         // ASSERTION SET 1: Copy a single file to a non-existing target folder (recursion enabled but isn't applicable in the case of a file as the sourcePathname)
-        Boolean job1Started = false;
+        CopyJob copyJob1 = null;
         try {
-            job1Started = fileManager.copyPathname(fileToCopy, anotherFolder, true, false, false);
-        } catch (IOException e) {
-            // Ignore exception - not thrown by this FileManager implementation
+            copyJob1 = swingFileManager.copyPathname(fileToCopy, anotherFolder, true, false, null);
+            // IllegalStateException should not occur within this test
+        } catch (IOException | IllegalStateException e) {
+            // IOException not thrown by this FileManager implementation
         }
-        if (job1Started) {
+        if (copyJob1 != null) {
             try {
-                // Use this test class' custom CopyJobCompletionListener for detecting when the SwingWorker is truly finished
-                CopyJobCompletionListener jobCompletionListener = new CopyJobCompletionListener(fileToCopy, fileManager);
-                fileManager.addPropertyChangeListener(fileToCopy.toString(), jobCompletionListener);
-                jobCompletionListener.waitForJobCompletion();   // rethrows interrupted exception from SwingWorker internals
-
+                copyJob1.awaitCompletion(); // rethrows exceptions from within SwingWorker internals
+                //Thread.sleep(10000);
                 try {
                     Assert.assertEquals("copying of a file to a new folder, created one pathname in target folder", 1, getChildCount(anotherFolder));
                 } catch (IOException e) {
@@ -200,26 +195,25 @@ public class ConcurrentFileManagerTest {
                 Assert.fail(e.getCause().getClass().getSimpleName() + " during BackgroundCopyWorker execution, copying of a file to a new folder - " + e.getCause().getMessage());
             }
             try {
-                fileManager.deletePathname(anotherFolder);
+                swingFileManager.deletePathname(anotherFolder);
             } catch (IOException e) {
                 Assert.fail("IOException while deleting folder following assertion of non-recursive copying of a folder - " + anotherFolder);
             }
         } else {
-            Assert.fail("copying of a file to a new folder, could not start copy job");
+            Assert.fail("copying of a file to a new folder, could not create copy job");
         }
 
         // ASSERTION SET 2: Copy folder contents to a non-existing target folder with folder recursion disabled
-        Boolean job2Started = false;
+        CopyJob copyJob2 = null;
         try {
-            job2Started = fileManager.copyPathname(folder, anotherFolder, false, false, false);
+            copyJob2 = swingFileManager.copyPathname(folder, anotherFolder, false, false, null);
+            // IllegalStateException should not occur within this test
         } catch (IOException e) {
             // Ignore exception - not thrown by this FileManager implementation
         }
-        if (job2Started) {
+        if (copyJob2 != null) {
             try {
-                CopyJobCompletionListener jobCompletionListener = new CopyJobCompletionListener(folder, fileManager);
-                fileManager.addPropertyChangeListener(folder.toString(), jobCompletionListener);
-                jobCompletionListener.waitForJobCompletion();
+                copyJob2.awaitCompletion();
 
                 try {
                     Assert.assertEquals("non recursive copying of a folder, created two pathnames in target folder", 2, getChildCount(anotherFolder));
@@ -238,26 +232,25 @@ public class ConcurrentFileManagerTest {
                 Assert.fail(e.getCause().getClass().getSimpleName() + " during BackgroundCopyWorker execution, non-recursive copying of a folder - " + e.getCause().getMessage());
             }
             try {
-                fileManager.deletePathname(anotherFolder);
+                swingFileManager.deletePathname(anotherFolder);
             } catch (IOException e) {
                 Assert.fail("IOException while deleting folder following assertion of non-recursive copying of a folder: " + anotherFolder);
             }
         } else {
-            Assert.fail("non-recursive copying of a folder, could not start copy job");
+            Assert.fail("non-recursive copying of a folder, could not create copy job");
         }
 
         // ASSERTION SET 3: Copy a folder, with the contents of all subfolders, to a target folder (folder recursion enabled)
-        Boolean job3Started = false;
+        CopyJob copyJob3 = null;
         try {
-            job3Started = fileManager.copyPathname(folder, anotherFolder, true, false, false);
+            copyJob3 = swingFileManager.copyPathname(folder, anotherFolder, true, false, null);
+            // IllegalStateException should not occur within this test
         } catch (IOException e) {
             // Ignore exception - not thrown by this FileManager implementation
         }
-        if (job3Started) {
+        if (copyJob3 != null) {
             try {
-                CopyJobCompletionListener jobCompletionListener = new CopyJobCompletionListener(folder, fileManager);
-                fileManager.addPropertyChangeListener(folder.toString(), jobCompletionListener);
-                jobCompletionListener.waitForJobCompletion();
+                copyJob3.awaitCompletion();
 
                 try {
                     Assert.assertEquals("recursive copying of a folder, created two pathnames in target folder", 3, getChildCount(anotherFolder));
@@ -280,15 +273,15 @@ public class ConcurrentFileManagerTest {
                 Assert.fail(e.getCause().getClass().getSimpleName() + " during BackgroundCopyWorker execution, recursive copying of a folder - " + e.getCause().getMessage());
             }
         } else {
-            Assert.fail("recursive copying of a folder, could not start copy job");
+            Assert.fail("recursive copying of a folder, could not create copy job");
         }
 
-        Assert.assertEquals("tracked copy jobs have been been removed from class' internal map", 0, ((ConcurrentFileManager)fileManager).copyJobs.size());
+        Assert.assertEquals("tracked copy jobs have been been removed from class' internal map", 0, CopyJob.copyJobs.size());
 
         // Cleanup
         try {
-            fileManager.deletePathname(folder);
-            fileManager.deletePathname(anotherFolder);
+            swingFileManager.deletePathname(folder);
+            swingFileManager.deletePathname(anotherFolder);
         } catch (IOException e) {
             Assert.fail("IOException while attempting to delete temporary folder tree");
         }
@@ -316,80 +309,19 @@ public class ConcurrentFileManagerTest {
         return count;
     }
 
-    /**
-     * Custom PropertyChangeLister for detecting when a copy job has been completed
-     */
-    private static class CopyJobCompletionListener implements PropertyChangeListener {
+    @Override
+    public void UpdateCopyJobProgress(CopyJob copyJob, int percentProgressed) {
+        //System.out.println(copyJob.getDestinationFolder() + "    " + percentProgressed + "%");
+    }
 
-        private final FileManager propertyChangeSupporter;
-        private final Path jobName;
-        private final AtomicBoolean completionDetected = new AtomicBoolean(false);
-        private final Object lock = new Object();
-        private final int ONE_HUNDRED_PERCENT = 100;
-        private Throwable internalWorkerException = null;
+    @Override
+    public void UpdatePathnameCopyProgress(CopyJob copyJob, Path pathnameBeingCopied, int percentProgressed) {
+        //System.out.println(copyJob.getDestinationFolder() + "    " + pathnameBeingCopied + "    " + percentProgressed + "%");
+    }
 
-        /**
-         * Constructor for CopyJobCompletionListener class
-         *
-         * @param propertyChangeSupporter   the FileManager with which the listener will be registered/unregistered
-         */
-        public CopyJobCompletionListener(Path sourcePathBeingCopied, FileManager propertyChangeSupporter) {
-            if (propertyChangeSupporter == null) throw new NullPointerException("null reference provided for PropertyChangeSupport object");
-            if (sourcePathBeingCopied == null) throw new NullPointerException("null reference provided for PropertyChangeSupport object");
+    @Override
+    public void InternalCopyJobException(CopyJob copyJob, Throwable throwable) {
 
-            this.jobName = sourcePathBeingCopied;
-            this.propertyChangeSupporter = propertyChangeSupporter;
-
-            completionDetected.set(false);
-            propertyChangeSupporter.addPropertyChangeListener(sourcePathBeingCopied.toString(), this);
-        }
-
-        @Override
-        public void propertyChange(PropertyChangeEvent e) {
-            String propertyName = e.getPropertyName();
-
-            if (propertyName.equals(jobName.toString())) {
-                Object newValue = e.getNewValue();
-                Object oldValue = e.getOldValue();
-
-                if ((newValue != null) && (newValue instanceof SimpleImmutableEntry) && (((SimpleImmutableEntry<String, Integer>)newValue).getKey().equals("totalCopyProgress")) && (((SimpleImmutableEntry<String, Integer>)newValue).getValue() == ONE_HUNDRED_PERCENT)) {
-                    completionDetected.set(true);
-                    propertyChangeSupporter.removePropertyChangeListener(jobName.toString(), this);
-
-                    synchronized(lock) {
-                        lock.notify();
-                    }
-                }
-
-                if ((oldValue == null) && (newValue != null) && (newValue instanceof Throwable)) {
-                    internalWorkerException = (Throwable)newValue;
-
-                    synchronized(lock) {
-                        lock.notify();
-                    }
-                }
-            }
-        }
-
-        public void waitForJobCompletion() throws InterruptedException, ExecutionException {
-            synchronized (lock) {
-                while (!completionDetected.get()) {
-                    try {
-                        lock.wait();
-                    } catch (InterruptedException e) {
-                        // Ignore interrupt
-                    }
-                }
-            }
-
-            if (internalWorkerException != null) {
-                if (internalWorkerException instanceof InterruptedException) {
-                    throw (InterruptedException)internalWorkerException;
-                } else if (internalWorkerException instanceof ExecutionException) {
-                    throw (ExecutionException)internalWorkerException;
-                }
-            }
-        }
     }
 
 } // class ConcurrentFileManagerTest

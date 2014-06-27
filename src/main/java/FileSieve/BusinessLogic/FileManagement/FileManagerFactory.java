@@ -8,15 +8,13 @@ public class FileManagerFactory {
     private FileManagerFactory() { }
 
     /**
-     * Returns a FileManager instance for handling common file management operations
-     * Only a single worker thread is used per long-running operation (e.g. a file or folder copy).
-     * The returned FileManager object's generic parameter of "Boolean" specifies the type of the object
-     * returned by the "copyPathname" method.
+     * Returns a FileManager instance for handling common file management operations.
+     * One worker thread is used per long-running operation (e.g. a file or folder copy).
      *
-     * @return                  a FileManager<Boolean> instance
+     * @return                  a FileManager instance
      */
-    public static FileManager<Boolean> getFileManager() {
-        return new ConcurrentFileManager(1);
+    public static SwingFileManager getSwingFileManager() {
+        return new SwingWorkerBasedFileManager(1);
     }
 
     /**
@@ -26,8 +24,8 @@ public class FileManagerFactory {
      * @param workerThreads     maximum number of worker threads for long-running operations (e.g. a file or folder copy)
      * @return                  a FileManager<Boolean> instance
      */
-    private static FileManager<Boolean> getFileManager(int workerThreads) {
-        return new ConcurrentFileManager(workerThreads);
+    private static SwingFileManager getSwingFileManager(int workerThreads) {
+        return new SwingWorkerBasedFileManager(workerThreads);
     }
 
 } // class FileManagerFactory

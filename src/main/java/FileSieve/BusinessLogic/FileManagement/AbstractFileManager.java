@@ -2,8 +2,6 @@ package FileSieve.BusinessLogic.FileManagement;
 
 import java.awt.Desktop;
 import java.awt.GraphicsEnvironment;
-import java.beans.PropertyChangeListener;
-import java.beans.PropertyChangeSupport;
 import java.io.IOException;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
@@ -14,14 +12,17 @@ import java.nio.file.attribute.BasicFileAttributes;
 /**
  * Abstract file management class with default implementations for deleting and opening files and folders
  *
- * @param <T>   The type of the object returned by the copyPathname method of the FileCopier interface. In a simple
+ * @param <T>   The type of the object returned by the "copyPathname" method of the FileCopier interface. In a simple
  *              implementation this may simply be a Boolean object that indicates if the copy operation was started or
  *              completed successfully.
- */
-public abstract class FileManager<T> implements FileOpener, FileDeleter, FileCopier<T> {
+ * @param <L>   The type of the listener which is to receive copy notifications, as set by the "setCopyOperationsListener"
+ *              method of the FileCopier interface.
+ * @Param <C>   The type of the Comparator object to be used by the copyPathname method in determining if two
+ *              files are similar.
+*/
+abstract class AbstractFileManager<T, L, C> implements FileOpener, FileDeleter, FileCopier<T, L, C> {
 
     private boolean disableDesktopOpenMethod = false;
-    protected final PropertyChangeSupport pcs = new PropertyChangeSupport(this);
 
     /**
      * Prevents the Desktop.open method from being called within the class' openPathname method during JUnit testing.
@@ -138,20 +139,4 @@ public abstract class FileManager<T> implements FileOpener, FileDeleter, FileCop
         });
     }
 
-    public void addPropertyChangeListener(PropertyChangeListener listener) {
-        this.pcs.addPropertyChangeListener(listener);
-    }
-
-    public void addPropertyChangeListener(String propertyName, PropertyChangeListener listener) {
-        this.pcs.addPropertyChangeListener(propertyName, listener);
-    }
-
-    public void removePropertyChangeListener(PropertyChangeListener listener) {
-        this.pcs.removePropertyChangeListener(listener);
-    }
-
-    public void removePropertyChangeListener(String propertyName, PropertyChangeListener listener) {
-        this.pcs.removePropertyChangeListener(propertyName, listener);
-    }
-
-} // abstract class FileManager<T> implements FileOpener, FileDeleter, FileCopier<T>
+} // abstract class FileManager<T,L> implements FileOpener, FileDeleter, FileCopier<T,L>

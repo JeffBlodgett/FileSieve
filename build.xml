@@ -17,97 +17,83 @@
     <property name="build.report.cobertura.dir" value="${report.dir}${file.separator}cobertura"
               description="report directory used by Cobertura code coverage"/>
 
-    <!-- this sets up the classpath for the project. Whenever you add a jar to the lib directory it will be automatically added to the classpath -->
+    <!-- this sets up the classpath for the project. Whenever you add a jar to the lib directory it will be
+         automatically added to the classpath -->
     <path id="project.classpath" description="the project's classpath - all third party libs are on it">
-        <pathelement path="${classes.dir}"/>
+        <pathelement path="${classes.dir}" />
         <fileset dir="${lib.dir}">
-            <include name="**/*.jar"/>
-            <exclude name="cobertura/*"/>
+            <include name="**/*.jar" />
+            <exclude name="cobertura/*" />
         </fileset>
     </path>
 
     <path id="cobertura.classpath">
-        <pathelement path="${classes.dir}"/>
+        <pathelement path="${classes.dir}" />
         <fileset dir="${lib.dir}">
-            <include name="cobertura/*.jar"/>
+            <include name="cobertura/*.jar" />
         </fileset>
     </path>
 
-    <taskdef classpathref="cobertura.classpath" resource="tasks.properties"/>
+    <taskdef classpathref="cobertura.classpath" resource="tasks.properties" />
 
     <!-- targets follow - each target does one thing in the compile, run, test and build process -->
 
-    <target name="clean" description="deletes all build artifacts (anything created by this build file)">
-        <delete dir="${classes.dir}"/>
-        <delete dir="${report.dir}"/>
-        <delete dir="${build.dir}"/>
+    <target name="clean" description="deletes all build artifacts (anything created by this build file)" >
+        <delete dir="${build.dir}" />
     </target>
 
-    <target name="init" description="Build initialization - create output directories" depends="clean">
-        <mkdir dir="${build.dir}"/>
-        <mkdir dir="${classes.dir}"/>
-        <mkdir dir="${report.dir}"/>
-        <mkdir dir="${build.instrumented.dir}"/>
-        <mkdir dir="${build.report.cobertura.dir}"/>
-        <cobertura-instrument todir="${build.instrumented.dir}" datafile="${classes.dir}${file.separator}cobertura.ser">
-            <fileset dir="${classes.dir}">
-                <include name="**/*.class"/>
-            </fileset>
-        </cobertura-instrument>
+    <target name="init" description="Build initialization - create output directories" depends="clean" >
+        <mkdir dir="${build.dir}" />
+        <mkdir dir="${classes.dir}" />
+        <mkdir dir="${report.dir}" />
+        <mkdir dir="${build.instrumented.dir}" />
+        <mkdir dir="${build.report.cobertura.dir}" />
     </target>
 
     <target name="compile" description="produce classes" depends="init">
         <javac destdir="${classes.dir}" debug="true" fork="true" includeantruntime="false">
-            <src path="${src.dir}"/>
-            <src path="${src-test.dir}"/>
-            <classpath refid="project.classpath"/>
+            <src path="${src.dir}" />
+            <src path="${src-test.dir}" />
+            <classpath refid="project.classpath" />
         </javac>
     </target>
 
     <target name="instrument" description="cobertura instrumentation" depends="compile">
-        <!--
-            Remove the coverage data file and any old instrumentation.
-        -->
-        <delete file="${classes.dir}${file.separator}cobertura.ser"/>
-        <delete dir="${build.instrumented.dir}"/>
-
-        <!--
-            Instrument the application classes, writing the
-            instrumented classes into ${build.instrumented.dir}.
-        -->
-        <cobertura-instrument todir="${build.instrumented.dir}">
-            <!--
-                The following line causes instrument to ignore any
-                source line containing a reference to log4j, for the
-                purposes of coverage reporting.
-            -->
+        <!-- Instrument the application classes, writing the instrumented classes into ${build.instrumented.dir} -->
+        <cobertura-instrument ignoreTrivial="true" todir="${build.instrumented.dir}" datafile="${classes.dir}${file.separator}cobertura.ser">
+            <!-- the following line causes instrument to ignore any source line containing a reference
+                 to log4j, for the purposes of coverage reporting -->
             <ignore regex="org.apache.log4j.*" />
 
             <fileset dir="${classes.dir}">
-                <!--
-                    Instrument all the application classes, but
-                    don't instrument the test classes.
-                -->
-                <include name="**/*.class"/>
-                <exclude name="**/*Test.class"/>
+                <!-- Instrument all the application classes but don't instrument the test classes -->
+                <include name="**/*.class" />
+                <exclude name="**/*Test.class" />
             </fileset>
         </cobertura-instrument>
     </target>
 
-    <target name="test" description="Runs all the JUnit tests and generates the test results report" depends="compile,instrument">
+    <target name="test" description="Runs all the JUnit tests and generates the test result reports" depends="compile,instrument">
         <junit printsummary="yes" haltonfailure="false" showoutput="true" failureproperty="test_failure">
+            <!-- specify the name of the cobertura coverage data file to use -->
+            <sysproperty key="net.sourceforge.cobertura.datafile" file="${classes.dir}${file.separator}cobertura.ser" />
+
+            <!-- instrumented classes must appear before the original uninstrumented classes in the
+                 classpath for cobertura to work correctly -->
             <classpath location="${build.instrumented.dir}"/>
             <classpath location="${classes.dir}"/>
 
+            <!-- the instrumented classes reference classes used by the Cobertura runtime so Cobertura and its
+                 dependencies must be on the classpath -->
             <classpath refid="cobertura.classpath"/>
+
             <classpath refid="project.classpath"/>
 
             <formatter type="xml"/>
             <batchtest fork="yes" todir="${report.dir}">
                 <fileset dir="${src-test.dir}">
-                    <include name="**/*Test*.java"/>
+                    <include name="**/*Test*.java" />
                 </fileset>
-
             </batchtest>
         </junit>
 
@@ -118,17 +104,17 @@
             <report format="frames" todir="${report.dir}/html"/>
         </junitreport>
 
-        <cobertura-report format="html" srcdir="${src.dir}" destdir="${build.report.cobertura.dir}"/>
+        <!-- generate cobertura HTML report -->
+        <cobertura-report format="html" srcdir="${src.dir}" destdir="${build.report.cobertura.dir}" datafile="${classes.dir}${file.separator}cobertura.ser" />
 
-        <!-- if a test fails then the property "test_failure" will be set and we fail now.
-         Failing now, rather than when the test actually failed, allows all the tests to complete and the report
-         to be generated. 
-         -->
-        <fail if="test_failure" message="At least one JUnit test failed. Please see report."/>
+        <!-- If a test fails then the property "test_failure" will be set and we fail now...
+             failing now, rather than when the test actually failed, allows all the tests to complete
+             and the report to be generated -->
+        <fail if="test_failure" message="At least one JUnit test failed. Please see report." />
     </target>
 
-    <!-- this is the default target - it does everything -->
+    <!-- this is the default target... it does everything -->
     <target name="all" depends="clean, init, compile, instrument, test"
-            description="deletes previous work, initializes build directories, compiles project, instruments compiled classes, and runs tests"/>
+            description="deletes previous work, initializes build directories, compiles project, instruments compiled classes, and runs tests" />
 
 </project>

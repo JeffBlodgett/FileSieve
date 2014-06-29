@@ -19,7 +19,7 @@ import java.util.concurrent.ExecutionException;
 /**
  * JUnit testing for the ConcurrentFileManager class
  */
-public class SwingWorkerBasedFileManagerTest implements CopyJobListener {
+public class SwingWorkerBasedFileManagerTest implements SwingCopyJobListener {
 
     private final SwingFileManager swingFileManager = FileManagerFactory.getSwingFileManager();
     private final String userTempFolder = System.getProperty("java.io.tmpdir");
@@ -170,16 +170,16 @@ public class SwingWorkerBasedFileManagerTest implements CopyJobListener {
         }
 
         // ASSERTION SET 1: Copy a single file to a non-existing target folder (recursion enabled but isn't applicable in the case of a file as the sourcePathname)
-        CopyJob copyJob1 = null;
+        SwingCopyJob swingCopyJob1 = null;
         try {
-            copyJob1 = swingFileManager.copyPathname(fileToCopy, anotherFolder, true, false, null);
+            swingCopyJob1 = swingFileManager.copyPathname(fileToCopy, anotherFolder, true, false, null);
             // IllegalStateException should not occur within this test
         } catch (IOException | IllegalStateException e) {
             // IOException not thrown by this FileManager implementation
         }
-        if (copyJob1 != null) {
+        if (swingCopyJob1 != null) {
             try {
-                copyJob1.awaitCompletion(); // rethrows exceptions from within SwingWorker internals
+                swingCopyJob1.awaitCompletion(); // rethrows exceptions from within SwingWorker internals
                 //Thread.sleep(10000);
                 try {
                     Assert.assertEquals("copying of a file to a new folder, created one pathname in target folder", 1, getChildCount(anotherFolder));
@@ -204,16 +204,16 @@ public class SwingWorkerBasedFileManagerTest implements CopyJobListener {
         }
 
         // ASSERTION SET 2: Copy folder contents to a non-existing target folder with folder recursion disabled
-        CopyJob copyJob2 = null;
+        SwingCopyJob swingCopyJob2 = null;
         try {
-            copyJob2 = swingFileManager.copyPathname(folder, anotherFolder, false, false, null);
+            swingCopyJob2 = swingFileManager.copyPathname(folder, anotherFolder, false, false, null);
             // IllegalStateException should not occur within this test
         } catch (IOException e) {
             // Ignore exception - not thrown by this FileManager implementation
         }
-        if (copyJob2 != null) {
+        if (swingCopyJob2 != null) {
             try {
-                copyJob2.awaitCompletion();
+                swingCopyJob2.awaitCompletion();
 
                 try {
                     Assert.assertEquals("non recursive copying of a folder, created two pathnames in target folder", 2, getChildCount(anotherFolder));
@@ -241,16 +241,16 @@ public class SwingWorkerBasedFileManagerTest implements CopyJobListener {
         }
 
         // ASSERTION SET 3: Copy a folder, with the contents of all subfolders, to a target folder (folder recursion enabled)
-        CopyJob copyJob3 = null;
+        SwingCopyJob swingCopyJob3 = null;
         try {
-            copyJob3 = swingFileManager.copyPathname(folder, anotherFolder, true, false, null);
+            swingCopyJob3 = swingFileManager.copyPathname(folder, anotherFolder, true, false, null);
             // IllegalStateException should not occur within this test
         } catch (IOException e) {
             // Ignore exception - not thrown by this FileManager implementation
         }
-        if (copyJob3 != null) {
+        if (swingCopyJob3 != null) {
             try {
-                copyJob3.awaitCompletion();
+                swingCopyJob3.awaitCompletion();
 
                 try {
                     Assert.assertEquals("recursive copying of a folder, created two pathnames in target folder", 3, getChildCount(anotherFolder));
@@ -276,7 +276,7 @@ public class SwingWorkerBasedFileManagerTest implements CopyJobListener {
             Assert.fail("recursive copying of a folder, could not create copy job");
         }
 
-        Assert.assertEquals("tracked copy jobs have been been removed from class' internal map", 0, CopyJob.copyJobs.size());
+        Assert.assertEquals("tracked copy jobs have been been removed from class' internal map", 0, SwingCopyJob.swingCopyJobs.size());
 
         // Cleanup
         try {
@@ -310,17 +310,17 @@ public class SwingWorkerBasedFileManagerTest implements CopyJobListener {
     }
 
     @Override
-    public void UpdateCopyJobProgress(CopyJob copyJob, int percentProgressed) {
+    public void UpdateCopyJobProgress(SwingCopyJob swingCopyJob, int percentProgressed) {
         //System.out.println(copyJob.getDestinationFolder() + "    " + percentProgressed + "%");
     }
 
     @Override
-    public void UpdatePathnameCopyProgress(CopyJob copyJob, Path pathnameBeingCopied, int percentProgressed) {
+    public void UpdatePathnameCopyProgress(SwingCopyJob swingCopyJob, Path pathnameBeingCopied, int percentProgressed) {
         //System.out.println(copyJob.getDestinationFolder() + "    " + pathnameBeingCopied + "    " + percentProgressed + "%");
     }
 
     @Override
-    public void InternalCopyJobException(CopyJob copyJob, Throwable throwable) {
+    public void InternalCopyJobException(SwingCopyJob swingCopyJob, Throwable throwable) {
 
     }
 

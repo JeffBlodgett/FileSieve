@@ -3,10 +3,11 @@ package FileSieve.BusinessLogic.FileManagement;
 import java.nio.file.Path;
 
 /**
- * Defines a FileManager type to be returned by the static FileManagerFactory class.
+ * Defines an implementation-specific FileManager type to be returned by at least one method of the static
+ * FileManagerFactory class.
  */
-public interface SwingFileManager extends FileOpener, FileDeleter, FileCopier<CopyJob, CopyJobListener, Path> {
+public interface SwingFileManager extends FileOpener, FileDeleter, FileCopier<SwingCopyJob, SwingCopyJobListener, Path> {
 
-    // Hybrid interface providing a type definition
+    // Hybrid interface that does nothing more than bring three other interfaces together into a hybrid interface
 
-} // interface SwingFileManager extends FileOpener, FileDeleter, FileCopier<CopyJob, CopyJobListener>
+} // interface SwingFileManager extends FileOpener, FileDeleter, FileCopier<SwingCopyJob, SwingCopyJobListener>

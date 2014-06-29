@@ -8,13 +8,13 @@ public class FileManagerFactory {
     private FileManagerFactory() { }
 
     /**
-     * Returns a FileManager instance for handling common file management operations
-     * Only a single worker thread is used per long-running operation (e.g. a file or folder copy)
+     * Returns a FileManager instance for handling common file management operations.
+     * One worker thread is used per long-running operation (e.g. a file or folder copy).
      *
      * @return                  a FileManager instance
      */
-    public static FileManager getFileManager() {
-        return new ConcurrentFileManager(1);
+    public static SwingFileManager getSwingFileManager() {
+        return new SwingWorkerBasedFileManager(1);
     }
 
     /**
@@ -22,10 +22,10 @@ public class FileManagerFactory {
      * TODO given time... not yet part of the public API
      *
      * @param workerThreads     maximum number of worker threads for long-running operations (e.g. a file or folder copy)
-     * @return                  a FileManager instance
+     * @return                  a FileManager<Boolean> instance
      */
-    private static FileManager getFileManager(int workerThreads) {
-        return new ConcurrentFileManager(workerThreads);
+    private static SwingFileManager getSwingFileManager(int workerThreads) {
+        return new SwingWorkerBasedFileManager(workerThreads);
     }
 
 } // class FileManagerFactory

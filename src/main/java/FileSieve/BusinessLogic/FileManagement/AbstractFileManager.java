@@ -2,8 +2,6 @@ package FileSieve.BusinessLogic.FileManagement;
 
 import java.awt.Desktop;
 import java.awt.GraphicsEnvironment;
-import java.beans.PropertyChangeListener;
-import java.beans.PropertyChangeSupport;
 import java.io.IOException;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
@@ -12,16 +10,24 @@ import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 
 /**
- * Basic file management class with default implementations for deleting and opening files and folders
- */
-public abstract class FileManager implements FileOpener, FileDeleter, FileCopier {
+ * Abstract file management class with default implementations for deleting and opening files and folders
+ *
+ * @param <T>   The type of the object returned by the "copyPathname" method of the FileCopier interface. In a simple
+ *              implementation this may simply be a Boolean object that indicates if the copy operation was started or
+ *              completed successfully.
+ * @param <L>   The type of the listener which is to receive copy notifications, as set by the "setCopyOperationsListener"
+ *              method of the FileCopier interface.
+ * @Param <C>   The type of the Comparator object to be used by the copyPathname method in determining if two
+ *              files are similar.
+*/
+abstract class AbstractFileManager<T, L, C> implements FileOpener, FileDeleter, FileCopier<T, L, C> {
 
     private boolean disableDesktopOpenMethod = false;
-    protected final PropertyChangeSupport pcs = new PropertyChangeSupport(this);
 
     /**
      * Prevents the Desktop.open method from being called within the class' openPathname method during JUnit testing.
-     * Flag holds for only one client call of the "openPathname" method.
+     * Flag holds for only one client call of the "openPathname" method. Had considered using a mock object for the
+     * Desktop instance but the runtime's Desktop instance is a singleton instantiated at runtime startup.
      *
      * @param disableFileOpen                   pass a value of "true "if Desktop.open method is to be disable for testing
      */
@@ -40,7 +46,9 @@ public abstract class FileManager implements FileOpener, FileDeleter, FileCopier
      */
     @Override
     public boolean deletePathname(Path pathname) throws NullPointerException, SecurityException, IOException  {
-        if (pathname == null) throw new NullPointerException("null pathname provided");
+        if (pathname == null) {
+            throw new NullPointerException("null pathname provided");
+        }
 
         boolean result = false;
 
@@ -49,7 +57,7 @@ public abstract class FileManager implements FileOpener, FileDeleter, FileCopier
                 Files.delete(pathname);
                 result = true;
             } else {
-                removeRecursive(pathname);
+                deleteRecursively(pathname);
                 result = true;
             }
         }
@@ -71,16 +79,17 @@ public abstract class FileManager implements FileOpener, FileDeleter, FileCopier
     @Override
     public void openPathname(Path pathname) throws NullPointerException, UnsupportedOperationException, IllegalArgumentException, SecurityException, IOException {
         try {
-            if (pathname == null) throw new NullPointerException("null pathname provided");
+            if (pathname == null) {
+                throw new NullPointerException("null pathname provided");
+            }
 
             if (Desktop.isDesktopSupported()) {
                 if (!GraphicsEnvironment.isHeadless()) {
                     Desktop desktop = Desktop.getDesktop();
                     if (desktop.isSupported(Desktop.Action.OPEN)) {
-                        if (disableDesktopOpenMethod == false) {
+                        if (!disableDesktopOpenMethod) {
                             desktop.open(pathname.toFile());
                         }
-                        return;
                     }
                 } else {
                     throw new UnsupportedOperationException("The system is headless");
@@ -95,13 +104,13 @@ public abstract class FileManager implements FileOpener, FileDeleter, FileCopier
 
     /**
      * Private utility method for deleting files and folders recursively (e.g. from a folder).
-     * Posted by Trevor Robinson at:
+     * Original code posted by Trevor Robinson at:
      * http://stackoverflow.com/questions/779519/delete-files-recursively-in-java/8685959#8685959
      *
      * @param path              pathname of folder to be deleted recursively (all content will be deleted)
      * @throws IOException      thrown if the folder could not be deleted
      */
-    private static void removeRecursive(Path path) throws IOException {
+    private static void deleteRecursively(Path path) throws IOException {
         Files.walkFileTree(path, new SimpleFileVisitor<Path>() {
             @Override
             public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
@@ -111,8 +120,8 @@ public abstract class FileManager implements FileOpener, FileDeleter, FileCopier
 
             @Override
             public FileVisitResult visitFileFailed(Path file, IOException exc) throws IOException {
-                // try to delete the file anyway, even if its attributes could not be read, since delete-only access is
-                // theoretically possible
+                /* try to delete the file anyway, even if its attributes could not be read, since delete-only access is
+                   theoretically possible */
                 Files.delete(file);
                 return FileVisitResult.CONTINUE;
             }
@@ -130,20 +139,4 @@ public abstract class FileManager implements FileOpener, FileDeleter, FileCopier
         });
     }
 
-    public void addPropertyChangeListener(PropertyChangeListener listener) {
-        this.pcs.addPropertyChangeListener(listener);
-    }
-
-    public void addPropertyChangeListener(String propertyName, PropertyChangeListener listener) {
-        this.pcs.addPropertyChangeListener(propertyName, listener);
-    }
-
-    public void removePropertyChangeListener(PropertyChangeListener listener) {
-        this.pcs.removePropertyChangeListener(listener);
-    }
-
-    public void removePropertyChangeListener(String propertyName, PropertyChangeListener listener) {
-        this.pcs.removePropertyChangeListener(propertyName, listener);
-    }
-
-} // abstract class BasicFileManager implements FileManager
+} // abstract class FileManager<T,L> implements FileOpener, FileDeleter, FileCopier<T,L>

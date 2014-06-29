@@ -2,17 +2,18 @@ package FileSieve.BusinessLogic.FileManagement;
 
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.util.Comparator;
 
 /**
- * Concrete file manager class which inherits FileCopier and FileDeleter implementations from abstract class
- * FileManager and implements FileCopier.
+ * Concrete file manager class which inherits FileCopier and FileDeleter implementations from the AbstractFileManager
+ * class and implements FileCopier. This class is package-private.
  */
-final class SwingWorkerBasedFileManager extends AbstractFileManager<CopyJob, CopyJobListener, Path> implements SwingFileManager {
+final class SwingWorkerBasedFileManager extends AbstractFileManager<SwingCopyJob, SwingCopyJobListener, Path> implements SwingFileManager {
 
     private int workerLimit;
-    private CopyJobListener copyJobListener;
+    private SwingCopyJobListener swingCopyJobListener;
 
     protected SwingWorkerBasedFileManager(int workerThreadLimit) {
         this.workerLimit = workerThreadLimit;
@@ -36,24 +37,24 @@ final class SwingWorkerBasedFileManager extends AbstractFileManager<CopyJob, Cop
      *                                  being written to by a dissimilar copy job
      */
     @Override
-    public CopyJob copyPathname(Path sourcePathname, Path targetPathname, boolean recursionEnabled, boolean overwriteExistingFiles, Comparator<Path> fileComparator) throws IOException, IllegalStateException {
+    public SwingCopyJob copyPathname(Path sourcePathname, Path targetPathname, boolean recursionEnabled, boolean overwriteExistingFiles, Comparator<Path> fileComparator) throws IOException, IllegalStateException {
         if (sourcePathname == null) throw new NullPointerException("null path provided for sourcePathname parameter");
         if (targetPathname == null) throw new NullPointerException("null path provided for targetPathname parameter");
 
-        if (!Files.exists(sourcePathname)) throw new IllegalArgumentException("file or folder specified by \"sourcePathname\" parameter does not exist");
+        if (!Files.exists(sourcePathname, LinkOption.NOFOLLOW_LINKS)) throw new IllegalArgumentException("file or folder specified by \"sourcePathname\" parameter does not exist");
 
-        return CopyJob.getCopyJob(sourcePathname, targetPathname, recursionEnabled, overwriteExistingFiles, fileComparator, copyJobListener);
+        return SwingCopyJob.getCopyJob(sourcePathname, targetPathname, recursionEnabled, overwriteExistingFiles, fileComparator, swingCopyJobListener);
     }
 
     /**
-     * Sets the CopyJobListener to which CopyJob instances returned by the "copyPathname" method forward progress
+     * Sets the SwingCopyJobListener to which CopyJob instances returned by the "copyPathname" method forward progress
      * notifications.
      *
-     * @param copyJobListener   Reference to a CopyJobListener
+     * @param swingCopyJobListener   Reference to a SwingCopyJobListener
      */
     @Override
-    public void setCopyOperationsListener(CopyJobListener copyJobListener) {
-        this.copyJobListener = copyJobListener;
+    public void setCopyOperationsListener(SwingCopyJobListener swingCopyJobListener) {
+        this.swingCopyJobListener = swingCopyJobListener;
     }
 
 } // class SwingWorkerFileManagement extends BasicFileManager

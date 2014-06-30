@@ -10,8 +10,11 @@ public class SelectedPaths {
     private String refPath;
     private String targetPath;
 
+    private static final String DEFAULT_REFERENCEPATH = "DEFAULT_REFERENCEPATH";
+    private static final String DEFAULT_TARGETPATH = "DEFAULT_TARGETPATH";
+
     /**
-     * .
+     * default constructor, gets the user preferences for this class
      */
     public SelectedPaths() {
         Preferences root = Preferences.userRoot();
@@ -27,6 +30,9 @@ public class SelectedPaths {
         targetPath = targetPathName;
     }
 
+    /**
+     * Saves both reference and target paths
+     */
     public void save() {
         setReferencePathName(refPath);
         setTargetPathName(targetPath);
@@ -64,6 +70,4 @@ public class SelectedPaths {
         prefNode.put(DEFAULT_TARGETPATH, pathName);
     }
 
-    private static final String DEFAULT_REFERENCEPATH = "DEFAULT_REFERENCEPATH";
-    private static final String DEFAULT_TARGETPATH = "DEFAULT_TARGETPATH";
 }

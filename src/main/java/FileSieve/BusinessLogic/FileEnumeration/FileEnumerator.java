@@ -1,5 +1,6 @@
 package FileSieve.BusinessLogic.FileEnumeration;
 
+import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Map;
@@ -14,18 +15,18 @@ public interface FileEnumerator {
      * keys set to discovered file/folder paths and values set to instances of the BasicFileAttributes class, which
      * contains attributes for each file/folder.
      *
-     * @param pathname                  pathname of folder to be searched
-     * @param searchSubFolders          boolean parameter specifying if search should extend to subfolders
-     * @return                          discovered files/folders and their attributes
+     * @param rootPathname      pathname of folder to be searched
+     * @param recursiveSearch   boolean parameter specifying if search should extend to subfolders
+     * @return                  discovered files/folders and their BasicFileAttributes
      */
-    public Map<Path, BasicFileAttributes> getPathnames(Path pathname, boolean searchSubFolders);
+    public Map<Path, BasicFileAttributes> getPathnames(Path rootPathname, boolean recursiveSearch) throws IOException;
 
     /**
      * Convenience method (overload) for calling getPaths method with recursion enabled.
      *
-     * @param pathname                  pathname to be searched
-     * @return                          discovered files/folders and their attributes
+     * @param rootPathname      pathname to be searched
+     * @return                  discovered files/folders and their attributes
      */
-    public Map<Path, BasicFileAttributes> getPathnames(String pathname);
+    public Map<Path, BasicFileAttributes> getPathnames(Path rootPathname) throws IOException;
     
 } // interface FileEnumerator

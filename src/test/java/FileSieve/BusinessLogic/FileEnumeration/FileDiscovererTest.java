@@ -13,6 +13,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -25,11 +27,18 @@ public class FileDiscovererTest {
     private final String userTempFolder = System.getProperty("java.io.tmpdir");
     private final Path fileEnumerationTestFolder = new File(userTempFolder + "FileEnumerationTestFolder").toPath();
     private boolean recursiveSearches;
+    private final List<Path> listOfPaths = new ArrayList<Path>(20);
 
     @Before
     public void setup() {
         Assume.assumeFalse("folder used for tests should not pre-exist", Files.exists(fileEnumerationTestFolder));
+
+        // Construct folders and files to be used for testing
         constructTestPaths();
+
+        listOfPaths.add(fileEnumerationTestFolder.resolve("file.dat"));
+        listOfPaths.add(fileEnumerationTestFolder.resolve("sourceFolder2"));
+        listOfPaths.add(fileEnumerationTestFolder.resolve("sourceFolder1"));
     }
 
     @After
@@ -44,9 +53,9 @@ public class FileDiscovererTest {
      */
     @Test
     public void testGetPathnamesWithoutRecursion() throws IOException {
-        recursiveSearches = false;    // set-up for non-recursive searches
+        recursiveSearches = false;    // prepare for non-recursive searches
 
-        commonTestCode(fileDiscoverer.getPathnames(fileEnumerationTestFolder, false));
+        commonTestCode(fileDiscoverer.getPathnames(listOfPaths, false));
     }
 
     /**
@@ -56,9 +65,9 @@ public class FileDiscovererTest {
      */
     @Test
     public void testGetPathnamesWithRecursion() throws IOException {
-        recursiveSearches = true;     // set-up for recursive searches
+        recursiveSearches = true;     // prepare for recursive searches
 
-        commonTestCode(fileDiscoverer.getPathnames(fileEnumerationTestFolder));
+        commonTestCode(fileDiscoverer.getPathnames(listOfPaths));
     }
 
     /**
@@ -87,8 +96,10 @@ public class FileDiscovererTest {
                     break;
                 case 5:
                     Assert.assertTrue("fifth path in Map is that of \"file2.dat\" file", path.getFileName().toString().equals("file2.dat"));
+
                     if (!recursiveSearches) {
-                        Assert.assertTrue("there are no further paths in Map since recursion is disabled", discoveredPaths.size() == 5);
+                        Assert.assertTrue("there should only be 7 paths in the Map since recursion is disabled", discoveredPaths.size() == 5 + 2);
+                        return;
                     }
                     break;
                 case 6:
@@ -115,8 +126,14 @@ public class FileDiscovererTest {
                 case 13:
                     Assert.assertTrue("thirteenth path in Map is that of \"folder2File2.dat\" file", path.getFileName().toString().equals("folder2File2.dat"));
                     break;
+                case 14:
+                    Assert.assertTrue("fourteenth path in Map is that of \"file3.dat\" file", path.getFileName().toString().equals("file3.dat"));
+                    break;
+                case 15:
+                    Assert.assertTrue("fifteenth path in Map is that of \"file.dat\" file", path.getFileName().toString().equals("file.dat"));
+                    break;
                 default:
-                    Assert.fail("should only be 13 paths in Map");
+                    Assert.fail("there should only be 15 paths in the Map for an enumeration with recursive searching enabled");
             }
         }
     }
@@ -129,46 +146,58 @@ public class FileDiscovererTest {
             Produces a folder structure for testing as follows:
 
             <usersTempFolder>/FileEnumerationTestFolder/
-                folder1
-                    folder1SubFolder1
-                    folder1SubFolder2
-                    folder1File1.dat
-                    folder1File2.dat
-                folder2
-                    folder2SubFolder1
-                    folder2SubFolder2
-                    folder2File1.dat
-                    folder2File1.dat
-                folder3
-                    (empty)
-                file1.dat
-                file2.dat
+                sourceFolder1
+                    folder1
+                        folder1SubFolder1
+                        folder1SubFolder2
+                        folder1File1.dat
+                        folder1File2.dat
+                    folder2
+                        folder2SubFolder1
+                        folder2SubFolder2
+                        folder2File1.dat
+                        folder2File1.dat
+                    folder3
+                        (empty)
+                    file1.dat
+                    file2.dat
+                sourceFolder2
+                    file3.dat
+                file.dat
          */
 
-        try { // Create file inside
+        try { // Create folder within which test file/folder hierarchy will be built
             Files.createDirectory(fileEnumerationTestFolder);
+            Files.createDirectory(fileEnumerationTestFolder.resolve("sourceFolder2"));
+            Files.createDirectory(fileEnumerationTestFolder.resolve("sourceFolder1"));
         } catch (IOException e) {
-            Assert.fail("Unable to create folder for tests");
+            Assert.fail("Unable to create folders for tests");
         }
 
         try {
-            Files.createFile(new File(fileEnumerationTestFolder + "/file1.dat").toPath());
+            Files.createFile(fileEnumerationTestFolder.resolve("file.dat"));
+        } catch (IOException e) {
+            Assert.fail("Unable to create \"file.dat\" file within testFolder");
+        }
+
+        try {
+            Files.createFile(fileEnumerationTestFolder.resolve("sourceFolder1/file1.dat"));
         } catch (IOException e) {
             Assert.fail("Unable to create \"file1.dat\" file within testFolder");
         }
 
         try {
-            Files.createFile(new File(fileEnumerationTestFolder + "/file2.dat").toPath());
+            Files.createFile(fileEnumerationTestFolder.resolve("sourceFolder1/file2.dat"));
         } catch (IOException e) {
-            Assert.fail("Unable to create \"file1.dat\" file within testFolder");
+            Assert.fail("Unable to create \"file2.dat\" file within testFolder");
         }
 
         { // Construct "folder1" subfolder with some folders and files of its own
-            Path folder1 = new File(fileEnumerationTestFolder + "/folder1").toPath();
-            Path folder1SubFolder1 = new File(folder1 + "/folder1SubFolder1").toPath();
-            Path folder1SubFolder2 = new File(folder1 + "/folder1SubFolder2").toPath();
-            Path folder1File1 = new File(folder1 + "/folder1File1.dat").toPath();
-            Path folder1File2 = new File(folder1 + "/folder1File2.dat").toPath();
+            Path folder1 = fileEnumerationTestFolder.resolve("sourceFolder1/folder1");
+            Path folder1SubFolder1 = folder1.resolve("folder1SubFolder1");
+            Path folder1SubFolder2 = folder1.resolve("folder1SubFolder2");
+            Path folder1File1 = folder1.resolve("folder1File1.dat");
+            Path folder1File2 = folder1.resolve("folder1File2.dat");
 
             try {
                 Files.createDirectory(folder1);
@@ -182,11 +211,11 @@ public class FileDiscovererTest {
         }
 
         { // Construct "folder2" subfolder with some folders and files of its own
-            Path folder2 = new File(fileEnumerationTestFolder + "/folder2").toPath();
-            Path folder2SubFolder1 = new File(folder2 + "/folder2SubFolder1").toPath();
-            Path folder2SubFolder2 = new File(folder2 + "/folder2SubFolder2").toPath();
-            Path folder2File1 = new File(folder2 + "/folder2File1.dat").toPath();
-            Path folder2File2 = new File(folder2 + "/folder2File2.dat").toPath();
+            Path folder2 = fileEnumerationTestFolder.resolve("sourceFolder1/folder2");
+            Path folder2SubFolder1 = folder2.resolve("folder2SubFolder1");
+            Path folder2SubFolder2 = folder2.resolve("folder2SubFolder2");
+            Path folder2File1 = folder2.resolve("folder2File1.dat");
+            Path folder2File2 = folder2.resolve("folder2File2.dat");
 
             try {
                 Files.createDirectory(folder2);
@@ -200,13 +229,18 @@ public class FileDiscovererTest {
         }
 
         { // Create empty folder named "folder3"
-            Path folder3 = new File(fileEnumerationTestFolder + "/folder3").toPath();
-
+            Path folder3 = fileEnumerationTestFolder.resolve("sourceFolder1/folder3");
             try {
                 Files.createDirectory(folder3);
             } catch (IOException e) {
                 Assert.fail("Unable to create \"folder3\" folder within test folder");
             }
+        }
+
+        try {
+            Files.createFile(fileEnumerationTestFolder.resolve("sourceFolder2/file3.dat"));
+        } catch (IOException e) {
+            Assert.fail("Unable to create \"file3.dat\" file within test folder");
         }
     }
 

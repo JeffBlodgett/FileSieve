@@ -47,31 +47,29 @@ public class FileDiscovererTest {
     }
 
     /**
-     * Tests method getPathnames(Path, boolean)
+     * Tests method getPathnames(List<Path>, boolean)
      *
      * @throws IOException
      */
     @Test
     public void testGetPathnamesWithoutRecursion() throws IOException {
         recursiveSearches = false;    // prepare for non-recursive searches
-
         commonTestCode(fileDiscoverer.getPathnames(listOfPaths, false));
     }
 
     /**
-     * Tests method getPathnames(Path)
+     * Tests method getPathnames(List<Path>)
      *
      * @throws IOException
      */
     @Test
     public void testGetPathnamesWithRecursion() throws IOException {
         recursiveSearches = true;     // prepare for recursive searches
-
         commonTestCode(fileDiscoverer.getPathnames(listOfPaths));
     }
 
     /**
-     * Some code written to be called from either of the above tests
+     * Code written to be called from either of the above tests
      *
      * @param discoveredPaths   Map with path objects for discovered files and folders
      */

@@ -34,12 +34,15 @@ public class FileDiscoverer implements FileEnumerator {
      */
     @Override
     public Map<Path, BasicFileAttributes> getPathnames(List<Path> pathsToEnumerate, boolean recursiveSearch) throws IOException {
-        if ((pathsToEnumerate == null) || (pathsToEnumerate.size() == 0))throw new IllegalArgumentException("no paths to existing files or folder were provided for enumeration");
+        if ((pathsToEnumerate == null) || (pathsToEnumerate.size() == 0)) {
+            throw new IllegalArgumentException("no paths to existing files or folder were provided for enumeration");
+        }
 
-        List<Path> sourcePaths = new ArrayList<Path>(pathsToEnumerate.size());
+        // Map to be returned
         Map<Path, BasicFileAttributes> pathMap;
 
         // Test to ensure Path objects abstract existing files or folders
+        List<Path> sourcePaths = new ArrayList<Path>(pathsToEnumerate.size());
         for (Path path : pathsToEnumerate) {
             if ((path != null) && (Files.exists(path, LinkOption.NOFOLLOW_LINKS))) {
                 sourcePaths.add(path);

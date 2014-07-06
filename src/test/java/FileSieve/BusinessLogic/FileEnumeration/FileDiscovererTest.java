@@ -74,6 +74,10 @@ public class FileDiscovererTest {
 
         Assert.assertEquals("file discovery found 8 files", 8, fileDiscoverer.getFileCountFromLastEnumeration());
         Assert.assertEquals("file discovery reports proper number of bytes for sum of file byte lengths", expectedFileBytesWithRecursion, fileDiscoverer.getTotalFileByteCountFromLastEnumeration());
+
+        /* Call "testGetPathnamesWithRecursion" test method to ensure proper values are reported for the
+           discovered file count and total bytes */
+        testGetPathnamesWithoutRecursion();
     }
 
     /**

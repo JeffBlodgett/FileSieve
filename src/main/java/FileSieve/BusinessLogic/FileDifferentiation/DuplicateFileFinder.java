@@ -6,12 +6,18 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 public class DuplicateFileFinder implements FileDifferentiator {
+
+    private FileHashCalculator fileHashCalculator = null;
+
+    public DuplicateFileFinder() { }
+
+    public DuplicateFileFinder(FileHashCalculator fileHashCalculator) {
+        this.setFileHashCalculator(fileHashCalculator);
+    }
 
     @Override
     public List<SimpleImmutableEntry<String, List<File>>> getDuplicatedFiles(Map<Path, BasicFileAttributes> pathnames) {
@@ -36,7 +42,11 @@ public class DuplicateFileFinder implements FileDifferentiator {
                 int hash;
 
                 if ((key != null) && (value != null) && (value.isRegularFile())) {
-                    hash = calculateHash(key, value);
+                    if (fileHashCalculator == null) {
+                        hash = calculateHash(key, value);
+                    } else {
+                        hash = fileHashCalculator.calculateHash(key, value);
+                    }
 
                     if (hashMap.containsKey(hash)) {
                         if (!duplicates.containsKey(hash)) {
@@ -70,6 +80,10 @@ public class DuplicateFileFinder implements FileDifferentiator {
         }
 
         return result;
+    }
+
+    public void setFileHashCalculator(FileHashCalculator fileHashCalculator) {
+        this.fileHashCalculator = fileHashCalculator;
     }
 
     private int calculateHash(Path path, BasicFileAttributes attributes) {

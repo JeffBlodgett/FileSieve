@@ -84,7 +84,7 @@ public class FileDiscoverer implements FileEnumerator {
 
                     // Add paths to Map
                     for (Path path : pathsInDirectory) {
-                        pathMap.put(path, Files.readAttributes(path, BasicFileAttributes.class));
+                        pathMap.put(path, Files.readAttributes(path, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS));
                     }
 
                     // Recursively call method with current directory as the sole path to enumerate

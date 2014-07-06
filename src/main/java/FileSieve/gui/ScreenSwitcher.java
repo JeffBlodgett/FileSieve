@@ -55,7 +55,7 @@ public final class ScreenSwitcher {
         pane.add(screens, BorderLayout.CENTER);
         
         //pass screens to controller
-        controller.setScreens(screens);
+        controller.setScreens(screens, copyScreen);
     }
     
 }

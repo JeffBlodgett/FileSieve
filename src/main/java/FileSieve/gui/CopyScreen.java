@@ -12,11 +12,18 @@ import java.awt.event.ActionListener;
  * @author olgakaraseva
  */
 
-public class CopyScreen extends JPanel{
+class CopyScreen extends JPanel{
 	
     private Controller controller;
+    JLabel targetLabel;
+    JLabel progressTxt;
+    JList copyList;
+    DefaultListModel copyListModel;
+    JProgressBar totalProgressBar;
+    JButton cancelBtn;
+    JButton newSearchBtn;
 	
-    public CopyScreen(Controller cntrl){
+    CopyScreen(Controller cntrl){
 
 	controller = cntrl;
 	setLayout(new BorderLayout(10,10));		
@@ -25,15 +32,20 @@ public class CopyScreen extends JPanel{
 	JLabel copyLabel = new JLabel();
 	copyLabel.setText("Copying files to ");
 	copyLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        targetLabel = new JLabel();
+        targetLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
 		
 		
 	//Total Labels
-	JLabel progressTxt = new JLabel();
-	progressTxt.setText("Copied x (0 Kb) of x (0 Kb) files");
+	progressTxt = new JLabel();
+	progressTxt.setText("Copied x of x files (0Kb of 0Kb)");
 	progressTxt.setAlignmentX(Component.LEFT_ALIGNMENT);
 		
 	//Copy Files list
-	JList copyList = new JList();
+	
+        copyListModel = new DefaultListModel();
+        copyList = new JList(copyListModel);
+        //copyList.setModel(copyListModel);
 		
 	//Scroll pane for copy files list
 	JScrollPane copyScrollPane = new JScrollPane();
@@ -42,15 +54,17 @@ public class CopyScreen extends JPanel{
 	copyScrollPane.setAlignmentX(Component.LEFT_ALIGNMENT);
 		
 	//Buttons	
-	JButton cancelBtn = new JButton("Cancel");
+	cancelBtn = new JButton("Cancel");
 	cancelBtn.setAlignmentX(Component.LEFT_ALIGNMENT);
+        cancelBtn.setEnabled(false);
         cancelBtn.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                //to do
+                controller.stopCopyJob(true);
             }
         });
-	JButton newSearchBtn = new JButton("New Search");
+        
+	newSearchBtn = new JButton("New Search");
 	newSearchBtn.setAlignmentX(Component.RIGHT_ALIGNMENT);
 	newSearchBtn.addActionListener(new ActionListener() {
             @Override
@@ -63,7 +77,7 @@ public class CopyScreen extends JPanel{
 	JLabel totalProgressLabel = new JLabel();
 	totalProgressLabel.setText("Total Progress:");
 	totalProgressLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
-	JProgressBar totalProgressBar = new JProgressBar(0, 100);
+	totalProgressBar = new JProgressBar(0, 100);
 	totalProgressBar.setValue(0);
         totalProgressBar.setStringPainted(true);
         
@@ -77,9 +91,15 @@ public class CopyScreen extends JPanel{
         progressPane.setBorder(BorderFactory.createEmptyBorder(10,0,10,0));
 		
 	//set box layout for source path components
+        JPanel copyPaneTxt = new JPanel();
+        copyPaneTxt.setLayout(new BoxLayout(copyPaneTxt, BoxLayout.LINE_AXIS));
+        copyPaneTxt.add(copyLabel);
+        copyPaneTxt.add(targetLabel);
+        copyPaneTxt.setAlignmentX(Component.LEFT_ALIGNMENT);
+        
 	JPanel copyPane = new JPanel();
 	copyPane.setLayout(new BoxLayout(copyPane, BoxLayout.PAGE_AXIS));
-	copyPane.add(copyLabel);
+	copyPane.add(copyPaneTxt);
 	copyPane.add(Box.createRigidArea(new Dimension(0,5)));
 	copyPane.add(copyScrollPane);
 	copyPane.setBorder(BorderFactory.createEmptyBorder(20,20,20,20));
@@ -96,8 +116,7 @@ public class CopyScreen extends JPanel{
 	buttonPane.add(newSearchBtn);
 		
 	add(buttonPane, BorderLayout.PAGE_END);
-		 
-		
+	
     }
 
 }

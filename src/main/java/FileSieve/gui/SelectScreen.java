@@ -15,13 +15,13 @@ import javax.swing.tree.TreeSelectionModel;
  * @author olgakaraseva
  */
 
-public class SelectScreen extends JPanel{
+class SelectScreen extends JPanel{
 	
         private Controller controller;
         private JTree srcFilepathTree;
         private JCheckBox subfoldersCb;
 	
-	public SelectScreen(Controller cntrl){
+	SelectScreen(Controller cntrl){
             
             controller = cntrl;
             setLayout(new BorderLayout(10,10));	

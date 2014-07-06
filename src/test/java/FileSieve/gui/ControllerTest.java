@@ -57,6 +57,7 @@ public class ControllerTest {
         testScreenChangedCorrectly(ScreenEnum.COPYPANEL);
     }
     
+    
     private void testScreenChangedCorrectly(ScreenEnum val){
         controller.changeScreen(val.btnText());
         for (Component comp : ss.screens.getComponents() ) {

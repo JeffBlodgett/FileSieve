@@ -12,12 +12,12 @@ import java.awt.event.ActionListener;
  * @author olgakaraseva
  */
 
-public class ResultScreen extends JPanel{
+class ResultScreen extends JPanel{
 	
     private Controller controller;
     private JTree duplicatesList;
 	
-    public ResultScreen(Controller cntrl){
+    ResultScreen(Controller cntrl){
 		
 	controller = cntrl;
 	setLayout(new BorderLayout(10,10));	

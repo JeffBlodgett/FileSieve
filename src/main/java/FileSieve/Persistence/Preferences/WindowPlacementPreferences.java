@@ -2,7 +2,11 @@ package FileSieve.Persistence.Preferences;
 
 import java.awt.*;
 import javax.swing.JFrame;
+import java.awt.print.Book;
+import java.util.ArrayList;
+import java.util.prefs.BackingStoreException;
 import java.util.prefs.Preferences;
+import java.util.List;
 
 /**
  * Class for saving/retrieving properties of the user window
@@ -10,10 +14,16 @@ import java.util.prefs.Preferences;
 public class WindowPlacementPreferences {
     private Preferences prefNode;
     private JFrame frame;
+    private boolean prefsSet = false;
+
+    private static final String USER_WINDOW_TOP = "USER_WINDOW_TOP";
+    private static final String USER_WINDOW_LEFT = "USER_WINDOW_LEFT";
+    private static final String USER_WINDOW_WIDTH = "USER_WINDOW_WIDTH";
+    private static final String USER_WINDOW_HEIGHT = "USER_WINDOW_HEIGHT";
 
     public WindowPlacementPreferences() {
-        Preferences root = Preferences.userRoot();
-        prefNode = root.node("/com/filesieve/windowposition");
+        prefNode = Preferences.userNodeForPackage( getClass() );
+        prefsSet = getPrefsSet();
     }
 
     public WindowPlacementPreferences(JFrame jframe) {
@@ -30,7 +40,7 @@ public class WindowPlacementPreferences {
             setWindowHeight(frame.getHeight());
             setWindowTop(frame.getY());
             setWindowLeft(frame.getX());
-            setScreen();
+            prefsSet = true;
         }
     }
 
@@ -41,7 +51,7 @@ public class WindowPlacementPreferences {
      */
     public void load(JFrame jframe) {
         jframe.setBounds(getWindowLeft(), getWindowTop(), getWindowWidth(), getWindowHeight());
-        //TODO: code to set the frame's current screen
+        setScreen(jframe);
     }
 
     /**
@@ -115,28 +125,115 @@ public class WindowPlacementPreferences {
     }
 
     /**
-     * Returns the previous screen hosting the window.
+     * Returns whether the user's preferences were previously saved.
      *
-     * @return                          int screen number
+     * @return                          boolean where true indicates the preferences already existed, default false.
      */
-    public int getScreen() {
-        return prefNode.getInt(USER_SCREEN, 0);
+    public boolean getPrefsSet() {
+        boolean hasKeys;
+        try {
+            hasKeys = (prefNode.keys().length > 0);
+        } catch (BackingStoreException ex) {
+            hasKeys = false;
+        }
+        return hasKeys;
     }
 
     /**
-     * Sets the screen holding the window in user's preference store
+     * Clears the window placement preferences.
+     *
+     * @throws BackingStoreException
      */
-    private void setScreen() {
-        //frame must be instantiated and visible to get current screen.
-        if (frame != null && frame.isVisible()) {
-            //TODO: Get screen number from frame object
-        }
-        prefNode.putInt(USER_SCREEN, 0);
+    public void clear() throws BackingStoreException {
+        prefNode.clear();
     }
 
-    private static final String USER_WINDOW_TOP = "USER_WINDOW_TOP";
-    private static final String USER_WINDOW_LEFT = "USER_WINDOW_LEFT";
-    private static final String USER_WINDOW_WIDTH = "USER_WINDOW_WIDTH";
-    private static final String USER_WINDOW_HEIGHT = "USER_WINDOW_HEIGHT";
-    private static final String USER_SCREEN = "USER_SCREEN";
+    /**
+     * Checks to see if the window is fully within the bounds of the screen
+     * if not sets the window to be centered in the screen
+     *
+     * @param jFrame                    frame to be checked and repositioned if necessary.
+     */
+    private void setScreen(JFrame jFrame) throws HeadlessException {
+        if (!prefsSet) {
+            //passing null to setLocationRelativeTo centers the frame on the current screen.
+            jFrame.setLocationRelativeTo(null);
+        } else {
+            Point currentWindowLocation = new Point();
+            currentWindowLocation.setLocation(jFrame.getX(), jFrame.getY());
+
+            Rectangle currentScreen = CalculateUsableDisplayBounds(currentWindowLocation);
+            if (!currentScreen.contains(jFrame.getBounds())) {
+                jFrame.setLocationRelativeTo(null);
+            }
+
+        }
+    }
+
+    /**
+     * Identifies the display on which the form currently resides and returns the bounds
+     * of the display as a Rectangle, taking into consideration the space occupied by the
+     * taskbar or other screen insets. If the form's location does not reside on any
+     * detected display then the bounds of the closest display is returned. The
+     * coordinates of the returned rectangle (display bounds) are relative to the
+     * overall virtual desktop.
+     *
+     * @param currentWindowLocation     Point object with x,y coordinate used to identify display.
+     * @return      Rectangle object with bounds of usable space on the identified
+     *              display device.
+     */
+    private static Rectangle CalculateUsableDisplayBounds(Point currentWindowLocation) throws HeadlessException {
+        Rectangle bounds = null;
+        List<Point> displayCenterPoints = new ArrayList<>();
+        List<Rectangle> displayBounds = new ArrayList<>();
+
+        GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
+        for (GraphicsDevice gd : ge.getScreenDevices()) {
+            GraphicsConfiguration dgc = gd.getDefaultConfiguration();
+
+            Rectangle gcBounds = dgc.getBounds();
+            displayBounds.add(gcBounds);
+
+            displayCenterPoints.add(new Point( (gcBounds.x + (gcBounds.width / 2)), (gcBounds.y + (gcBounds.height / 2)) ));
+
+            if (gcBounds.contains(currentWindowLocation)) {
+                Insets screenInsets  = Toolkit.getDefaultToolkit().getScreenInsets(dgc);
+
+                int minX = (int)(gcBounds.getMinX() + screenInsets.left);
+                int minY = (int)(gcBounds.getMinY() + screenInsets.top);
+                int maxX = (int)(gcBounds.getMaxX() - screenInsets.right);
+                int maxY = (int)(gcBounds.getMaxY() - screenInsets.bottom);
+
+                bounds = new Rectangle(minX, minY, (maxX - minX), (maxY - minY));
+            }
+        }
+
+        if (displayCenterPoints.isEmpty()) {
+            throw new HeadlessException("No display devices detected.");
+        } else if (bounds == null) {
+            // Current Window location is not within the bounds of any detected display.
+            // Identify the display whose center point is closest to the window's location...
+            List<Integer> distances = new ArrayList<>();
+
+            for (Point p : displayCenterPoints) {
+                distances.add(Double.valueOf(Math.abs(currentWindowLocation.distance(p))).intValue());
+            }
+
+            int indexWithMinDistance = 0;
+            Integer minDistance = null;
+            for (int i = 0; i < distances.size(); i++) {
+                if (minDistance == null) {
+                    minDistance = distances.get(i);
+                    indexWithMinDistance = i;
+                } else {
+                    minDistance = Math.min(minDistance, distances.get(i));
+                    if (minDistance.equals(distances.get(i))) indexWithMinDistance = i;
+                }
+            }
+
+            bounds = displayBounds.get(indexWithMinDistance);
+        }
+
+        return bounds;
+    }
 }

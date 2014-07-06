@@ -1,5 +1,9 @@
 package FileSieve.Persistence.Preferences;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.prefs.BackingStoreException;
 import java.util.prefs.Preferences;
 
 /**
@@ -7,24 +11,24 @@ import java.util.prefs.Preferences;
  */
 public class SelectedPaths {
     private Preferences prefNode;
-    private String refPath;
+    private List<String> refPath;
     private String targetPath;
 
     private static final String DEFAULT_REFERENCEPATH = "DEFAULT_REFERENCEPATH";
     private static final String DEFAULT_TARGETPATH = "DEFAULT_TARGETPATH";
+    private static final String MULTIPATH_SEPARATOR = "\t";
 
     /**
      * default constructor, gets the user preferences for this class
      */
     public SelectedPaths() {
-        Preferences root = Preferences.userRoot();
-        prefNode = root.node("/com/filesieve/selectedpaths");
+        prefNode = Preferences.userNodeForPackage(getClass());
     }
 
     /**
      * initialize and set the reference paths.
      */
-    public SelectedPaths(String referencePathName, String targetPathName) {
+    public SelectedPaths(List<String> referencePathName, String targetPathName) {
         this();
         refPath = referencePathName;
         targetPath = targetPathName;
@@ -34,7 +38,7 @@ public class SelectedPaths {
      * Saves both reference and target paths
      */
     public void save() {
-        setReferencePathName(refPath);
+        setReferencePathNames(refPath);
         setTargetPathName(targetPath);
     }
 
@@ -43,15 +47,27 @@ public class SelectedPaths {
      *
      * @return                          string reference path
      */
-    public String getReferencePathName() {
-        return prefNode.get(DEFAULT_REFERENCEPATH, "");
+    public List<String> getReferencePathNames() {
+        String savedPaths = prefNode.get(DEFAULT_REFERENCEPATH, "");
+        return new ArrayList<>(Arrays.asList(savedPaths.split(MULTIPATH_SEPARATOR)));
     }
 
     /**
-     * Sets selected reference path
+     * Sets selected reference paths
+     *
+     * @param pathNames                 A list of strings representing the selected reference paths.
      */
-    private void setReferencePathName(String pathName) {
-        prefNode.put(DEFAULT_REFERENCEPATH, pathName);
+    private void setReferencePathNames(List<String> pathNames) {
+        StringBuilder sb = new StringBuilder();
+
+        for (String s : pathNames) {
+            if (sb.length() > 0) {
+                sb.append(MULTIPATH_SEPARATOR);
+            }
+            sb.append(s);
+        }
+
+        prefNode.put(DEFAULT_REFERENCEPATH, sb.toString());
     }
 
     /**
@@ -70,4 +86,27 @@ public class SelectedPaths {
         prefNode.put(DEFAULT_TARGETPATH, pathName);
     }
 
+    /**
+     * Returns whether the user's preferences were previously saved.
+     *
+     * @return                          boolean where true indicates the preferences already existed, default false.
+     */
+    public boolean getPrefsSet() {
+        boolean hasKeys;
+        try {
+            hasKeys = (prefNode.keys().length > 0);
+        } catch (BackingStoreException ex) {
+            hasKeys = false;
+        }
+        return hasKeys;
+    }
+
+    /**
+     * Clears the selected path preferences.
+     *
+     * @throws BackingStoreException
+     */
+    public void clear() throws BackingStoreException {
+        prefNode.clear();
+    }
 }

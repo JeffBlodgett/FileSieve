@@ -12,6 +12,21 @@ import java.util.Map;
 interface FileEnumerator {
 
     /**
+     * Returns a count for the number of files (excludes folders) discovered during the most recently completed
+     * file enumeration.
+     *
+     * @return  count of the number of previously discovered files
+     */
+    public int getFileCountFromLastEnumeration();
+
+    /**
+     * Returns the sum of the bytes of the files discovered during the most recently completed file enumeration.
+     *
+     * @return  sum of the bytes of previously discovered files
+     */
+    public long getTotalFileByteCountFromLastEnumeration();
+
+    /**
      * Returns a list of discovered files and folders amongst a list of provided pathnames. The returned list is in the
      * form of a LinkedHashMap with its keys set to discovered file/folder paths and its values set to instances of the
      * BasicFileAttributes class, containing attributes for each file or folder. The provided list of paths to

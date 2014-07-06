@@ -28,6 +28,8 @@ public class FileDiscovererTest {
     private final Path fileEnumerationTestFolder = new File(userTempFolder + "FileEnumerationTestFolder").toPath();
     private boolean recursiveSearches;
     private final List<Path> listOfPaths = new ArrayList<Path>(20);
+    private long expectedFileBytesWithRecursion = 0;
+    private long expectedFileBytesWithoutRecursion = 0;
 
     @Before
     public void setup() {
@@ -55,6 +57,9 @@ public class FileDiscovererTest {
     public void testGetPathnamesWithoutRecursion() throws IOException {
         recursiveSearches = false;    // prepare for non-recursive searches
         commonTestCode(fileDiscoverer.getPathnames(listOfPaths, false));
+
+        Assert.assertEquals("file discovery found 4 files", 4, fileDiscoverer.getFileCountFromLastEnumeration());
+        Assert.assertEquals("file discovery reports proper number of bytes for sum of file byte lengths", expectedFileBytesWithoutRecursion, fileDiscoverer.getTotalFileByteCountFromLastEnumeration());
     }
 
     /**
@@ -66,6 +71,9 @@ public class FileDiscovererTest {
     public void testGetPathnamesWithRecursion() throws IOException {
         recursiveSearches = true;     // prepare for recursive searches
         commonTestCode(fileDiscoverer.getPathnames(listOfPaths));
+
+        Assert.assertEquals("file discovery found 8 files", 8, fileDiscoverer.getFileCountFromLastEnumeration());
+        Assert.assertEquals("file discovery reports proper number of bytes for sum of file byte lengths", expectedFileBytesWithRecursion, fileDiscoverer.getTotalFileByteCountFromLastEnumeration());
     }
 
     /**
@@ -96,7 +104,7 @@ public class FileDiscovererTest {
                     Assert.assertTrue("fifth path in Map is that of \"file2.dat\" file", path.getFileName().toString().equals("file2.dat"));
 
                     if (!recursiveSearches) {
-                        Assert.assertTrue("there should only be 7 paths in the Map since recursion is disabled", discoveredPaths.size() == 5 + 2);
+                        Assert.assertTrue("should only be 7 paths in the Map since recursion is disabled (5 paths in \"sourceFolder1\" plus 1 in \"sourceFolder2\" plus file path that was passed as a source)", discoveredPaths.size() == 5 + 1 + 1);
                         return;
                     }
                     break;
@@ -173,19 +181,28 @@ public class FileDiscovererTest {
         }
 
         try {
-            Files.createFile(fileEnumerationTestFolder.resolve("file.dat"));
+            Path file = fileEnumerationTestFolder.resolve("file.dat");
+            Files.createFile(file); // 0 bytes in length (no content) - i.e. expectedFileBytesWith/outRecursion... += 0;
         } catch (IOException e) {
             Assert.fail("Unable to create \"file.dat\" file within testFolder");
         }
 
         try {
-            Files.createFile(fileEnumerationTestFolder.resolve("sourceFolder1/file1.dat"));
+            Path file1 = fileEnumerationTestFolder.resolve("sourceFolder1/file1.dat");
+            Files.write(file1, "file1".getBytes());
+
+            expectedFileBytesWithRecursion += "file1".getBytes().length;
+            expectedFileBytesWithoutRecursion += "file1".getBytes().length;
         } catch (IOException e) {
             Assert.fail("Unable to create \"file1.dat\" file within testFolder");
         }
 
         try {
-            Files.createFile(fileEnumerationTestFolder.resolve("sourceFolder1/file2.dat"));
+            Path file2 = fileEnumerationTestFolder.resolve("sourceFolder1/file2.dat");
+            Files.write(file2, "file2".getBytes());
+
+            expectedFileBytesWithRecursion += "file2".getBytes().length;
+            expectedFileBytesWithoutRecursion += "file2".getBytes().length;
         } catch (IOException e) {
             Assert.fail("Unable to create \"file2.dat\" file within testFolder");
         }
@@ -201,8 +218,11 @@ public class FileDiscovererTest {
                 Files.createDirectory(folder1);
                 Files.createDirectory(folder1SubFolder1);
                 Files.createDirectory(folder1SubFolder2);
-                Files.createFile(folder1File1);
-                Files.createFile(folder1File2);
+                Files.write(folder1File1, "folder1File1".getBytes());
+                Files.write(folder1File2, "folder1File2".getBytes());
+
+                expectedFileBytesWithRecursion += "folder1File1".getBytes().length;
+                expectedFileBytesWithRecursion += "folder1File2".getBytes().length;
             } catch (IOException e) {
                 Assert.fail("Unable to create \"folder1\" folder hierarchy within test folder");
             }
@@ -219,8 +239,11 @@ public class FileDiscovererTest {
                 Files.createDirectory(folder2);
                 Files.createDirectory(folder2SubFolder1);
                 Files.createDirectory(folder2SubFolder2);
-                Files.createFile(folder2File1);
-                Files.createFile(folder2File2);
+                Files.write(folder2File1, "folder2File1".getBytes());
+                Files.write(folder2File2, "folder2File2".getBytes());
+
+                expectedFileBytesWithRecursion += "folder2File1".getBytes().length;
+                expectedFileBytesWithRecursion += "folder2File2".getBytes().length;
             } catch (IOException e) {
                 Assert.fail("Unable to create \"folder2\" folder hierarchy with test folder");
             }
@@ -236,7 +259,11 @@ public class FileDiscovererTest {
         }
 
         try {
-            Files.createFile(fileEnumerationTestFolder.resolve("sourceFolder2/file3.dat"));
+            Path file3 = fileEnumerationTestFolder.resolve("sourceFolder2/file3.dat");
+            Files.write(file3, "file3".getBytes());
+
+            expectedFileBytesWithRecursion += "file3".getBytes().length;
+            expectedFileBytesWithoutRecursion += "file3".getBytes().length;
         } catch (IOException e) {
             Assert.fail("Unable to create \"file3.dat\" file within test folder");
         }

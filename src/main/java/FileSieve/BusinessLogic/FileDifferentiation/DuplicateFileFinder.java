@@ -9,7 +9,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class DuplicateFileFinder implements FileDifferentiator {
+public class DuplicateFileFinder implements FileDifferentiator, FileHashCalculator {
 
     private FileHashCalculator fileHashCalculator = null;
 
@@ -86,10 +86,21 @@ public class DuplicateFileFinder implements FileDifferentiator {
         this.fileHashCalculator = fileHashCalculator;
     }
 
-    private int calculateHash(Path path, BasicFileAttributes attributes) {
+    /**
+     * Default implementation for calculating a hashcode for a given Path object using its BasicFileAttributes.
+     * This implementation factors in only the file names and the file length, the latter being part of the passed
+     * BasicFileAttributes for the Path object.
+     *
+     * @param path                  Path object for which to generate a hash code
+     * @param basicFileAttributes   BasicFileAttributes object for the passed Path
+     * @return                      a hash code suitable for use by the class in determining if two or more files
+     *                              are equal to equal to each other
+     */
+    @Override
+    public int calculateHash(Path path, BasicFileAttributes basicFileAttributes) {
         int result = 17;
         result = 31 * result + path.getFileName().hashCode();
-        result = 31 * result + (int)(attributes.size() ^ (attributes.size() >>> 32));
+        result = 31 * result + (int)(basicFileAttributes.size() ^ (basicFileAttributes.size() >>> 32));
         return result;
     }
 

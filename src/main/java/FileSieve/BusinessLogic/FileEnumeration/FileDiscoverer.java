@@ -19,6 +19,20 @@ import java.util.Map;
  */
 public class FileDiscoverer implements FileEnumerator {
 
+    private int fileCountFromLastEnumeration = 0;
+    private long totalFileByteCountFromLastEnumeration = 0;
+    private int recursionLevel = 0;
+
+    @Override
+    public int getFileCountFromLastEnumeration() {
+        return fileCountFromLastEnumeration;
+    }
+
+    @Override
+    public long getTotalFileByteCountFromLastEnumeration() {
+        return totalFileByteCountFromLastEnumeration;
+    }
+
     /**
      * Returns a list of discovered files and folders amongst a list of provided pathnames. The returned list is in the
      * form of a LinkedHashMap with its keys set to discovered file/folder paths and its values set to instances of the
@@ -34,72 +48,114 @@ public class FileDiscoverer implements FileEnumerator {
      */
     @Override
     public Map<Path, BasicFileAttributes> getPathnames(List<Path> pathsToEnumerate, boolean recursiveSearch) throws IOException {
-        if ((pathsToEnumerate == null) || (pathsToEnumerate.size() == 0)) {
-            throw new IllegalArgumentException("no paths to existing files or folder were provided for enumeration");
+        if (recursionLevel == 0) {
+            fileCountFromLastEnumeration = 0;
+            totalFileByteCountFromLastEnumeration = 0;
         }
 
-        // Map to be returned
-        Map<Path, BasicFileAttributes> pathMap;
+        //System.out.println(recursionLevel);
+        ++recursionLevel;
 
-        // Test to ensure Path objects abstract existing files or folders
-        List<Path> sourcePaths = new ArrayList<Path>(pathsToEnumerate.size());
-        for (Path path : pathsToEnumerate) {
-            if ((path != null) && (Files.exists(path, LinkOption.NOFOLLOW_LINKS))) {
-                sourcePaths.add(path);
+        try {
+            if ((pathsToEnumerate == null) || (pathsToEnumerate.size() == 0)) {
+                throw new IllegalArgumentException("no paths to existing files or folder were provided for enumeration");
             }
-        }
 
-        // Sort paths lexicographically, with folders first
-        Path[] rootPathArray = null;
-        if (sourcePaths.size() == 0) {
-            throw new IllegalArgumentException("no path(s) to existing files or folders were provided for enumeration");
-        } else {
-            rootPathArray = sourcePaths.toArray(new Path[sourcePaths.size()]);
-            Arrays.sort(rootPathArray, FileComparator.getInstance());
-            sourcePaths.clear();
-        }
+            // Map to be returned
+            Map<Path, BasicFileAttributes> pathMap;
 
-        // Initialize Map... it is time to do so if we got this far
-        pathMap = Collections.synchronizedMap(new LinkedHashMap<Path, BasicFileAttributes>(50));
-
-        for (Path rootPath : rootPathArray) {
-            List<Path> directoryContents = new ArrayList<Path>(25);
-
-            if (Files.isRegularFile(rootPath, LinkOption.NOFOLLOW_LINKS)) {
-                // Add file path to Map
-                pathMap.put(rootPath, Files.readAttributes(rootPath, BasicFileAttributes.class));
-            } else {
-                // Enumerate contents of directory
-                try (DirectoryStream<Path> dirStream = Files.newDirectoryStream(rootPath)) {
-                    for (Path path : dirStream) {
-                        directoryContents.add(path);
-                    }
+            // Test to ensure Path objects abstract existing files or folders
+            List<Path> sourcePaths = new ArrayList<Path>(pathsToEnumerate.size());
+            for (Path path : pathsToEnumerate) {
+                if ((path != null) && (Files.exists(path, LinkOption.NOFOLLOW_LINKS))) {
+                    sourcePaths.add(path);
                 }
+            }
 
-                if (directoryContents.size() > 0) {
-                    // Sort paths lexicographically, with folders first
-                    Path[] pathsInDirectory = directoryContents.toArray(new Path[directoryContents.size()]);
-                    Arrays.sort(pathsInDirectory, FileComparator.getInstance());
-                    directoryContents.clear();
+            // Sort paths lexicographically, with folders first
+            Path[] rootPathArray = null;
+            if (sourcePaths.size() == 0) {
+                throw new IllegalArgumentException("no path(s) to existing files or folders were provided for enumeration");
+            } else {
+                rootPathArray = sourcePaths.toArray(new Path[sourcePaths.size()]);
+                Arrays.sort(rootPathArray, FileComparator.getInstance());
+                sourcePaths.clear();
+            }
 
-                    // Add paths to Map
-                    for (Path path : pathsInDirectory) {
-                        pathMap.put(path, Files.readAttributes(path, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS));
+            // Initialize Map... it is time to do so if we got this far
+            pathMap = Collections.synchronizedMap(new LinkedHashMap<Path, BasicFileAttributes>(50));
+
+            for (Path rootPath : rootPathArray) {
+                List<Path> directoryContents = new ArrayList<Path>(25);
+
+                if (Files.isRegularFile(rootPath, LinkOption.NOFOLLOW_LINKS)) {
+                    // Add file path to Map
+                    pathMap.put(rootPath, Files.readAttributes(rootPath, BasicFileAttributes.class));
+
+                    // Increment discovered file counter
+                    ++fileCountFromLastEnumeration;
+
+                    // Add files bytes to byte counter
+                    totalFileByteCountFromLastEnumeration += rootPath.toFile().length();
+
+                } else {
+                    // Enumerate contents of directory
+                    try (DirectoryStream<Path> dirStream = Files.newDirectoryStream(rootPath)) {
+                        for (Path path : dirStream) {
+                            directoryContents.add(path);
+                        }
                     }
 
-                    // Recursively call method with current directory as the sole path to enumerate
-                    if (recursiveSearch) {
+                    if (directoryContents.size() > 0) {
+                        // Sort paths lexicographically, with folders first
+                        Path[] pathsInDirectory = directoryContents.toArray(new Path[directoryContents.size()]);
+                        Arrays.sort(pathsInDirectory, FileComparator.getInstance());
+                        directoryContents.clear();
+
+                        // Add paths to Map
                         for (Path path : pathsInDirectory) {
-                            if (Files.isDirectory(path)) {
-                                pathMap.putAll(getPathnames(path, true));
+                            pathMap.put(path, Files.readAttributes(path, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS));
+
+                            if (Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)) {
+                                // Increment discovered file counter
+                                ++fileCountFromLastEnumeration;
+
+                                // Add files bytes to byte counter
+                                totalFileByteCountFromLastEnumeration += path.toFile().length();
+                            }
+                        }
+
+                        // Recursively call method with current directory as the sole path to enumerate
+                        if (recursiveSearch) {
+                            for (Path path : pathsInDirectory) {
+                                if (Files.isDirectory(path)) {
+                                    ++recursionLevel;
+                                    try {
+                                        pathMap.putAll(getPathnames(path, true));
+
+                                    /* Rethrow exceptions, should they occur, and decrement the recursionLevel counter.
+                                       Maintains a valid state for the recursionLevel counter */
+                                    } catch (Exception e) {
+                                        throw e;
+                                    } finally {
+                                        --recursionLevel;
+                                    }
+                                }
                             }
                         }
                     }
                 }
             }
-        }
 
-        return pathMap;
+            return pathMap;
+
+        /* Rethrow exceptions, should they occur, and decrement the recursionLevel counter.
+           Maintains a valid state for the recursionLevel counter */
+        } catch (Exception e) {
+            throw e;
+        } finally {
+            --recursionLevel;
+        }
     }
 
     /**

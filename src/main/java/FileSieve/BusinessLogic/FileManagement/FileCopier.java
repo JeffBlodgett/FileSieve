@@ -2,7 +2,9 @@ package FileSieve.BusinessLogic.FileManagement;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Comparator;
+import java.util.Map;
 
 /**
  * Interface defining an operation for a file copier. Interface is package-private.
@@ -31,6 +33,19 @@ interface FileCopier<T, L, C> {
      * @throws IOException              thrown for implementer defined reason(s)
      */
     public T copyPathname(Path sourcePathname, Path targetPathname, boolean recursionEnabled, boolean overwriteExistingFiles, Comparator<C> fileComparator) throws IOException;
+
+    /**
+     * Similar to the copyPathname method but takes a Map containing key-value (Path-BasicFileAttributes) pairs,
+     * as output by a FileEnumerator object's "getPathnames" method, specified the exact file and folder paths to be
+     * copied.
+     * *
+     * @param sourcePathnames
+     * @param targetPathname
+     * @param overwriteExistingFiles
+     * @param fileComparator
+     * @return
+     */
+    public T copyPathnames(Map<Path, BasicFileAttributes> sourcePathnames, Path targetPathname, boolean overwriteExistingFiles, Comparator<C> fileComparator);
 
     /**
      * Specifies a listener to which progress updates for copy operations may be forwarded.

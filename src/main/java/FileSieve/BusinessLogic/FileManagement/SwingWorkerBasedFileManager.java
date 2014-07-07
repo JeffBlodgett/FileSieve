@@ -4,7 +4,9 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Comparator;
+import java.util.Map;
 
 /**
  * Concrete file manager class which inherits FileCopier and FileDeleter implementations from the AbstractFileManager
@@ -44,6 +46,11 @@ final class SwingWorkerBasedFileManager extends AbstractFileManager<SwingCopyJob
         if (!Files.exists(sourcePathname, LinkOption.NOFOLLOW_LINKS)) throw new IllegalArgumentException("file or folder specified by \"sourcePathname\" parameter does not exist");
 
         return SwingCopyJob.getCopyJob(sourcePathname, targetPathname, recursionEnabled, overwriteExistingFiles, fileComparator, swingCopyJobListener);
+    }
+
+    @Override
+    public SwingCopyJob copyPathnames(Map<Path, BasicFileAttributes> sourcePathnames, Path targetPathname, boolean overwriteExistingFiles, Comparator<Path> fileComparator) {
+
     }
 
     /**

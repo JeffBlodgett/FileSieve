@@ -20,9 +20,12 @@ import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.AbstractMap.SimpleImmutableEntry;
 
+/**
+ * Copy job
+ */
 public final class SwingCopyJob {
 
-    // swingCopyJobs has protected access instead of private only for testing purposes
+    // swingCopyJobs Map has protected access instead of private only for testing purposes
     protected static final Map<SwingCopyJob, Map<Path, Integer>> swingCopyJobs = Collections.synchronizedMap(new HashMap<SwingCopyJob, Map<Path, Integer>>(10));
 
     private final Object lockObject = new Object();
@@ -32,8 +35,8 @@ public final class SwingCopyJob {
     private final Path pathBeingCopied;
     private final Path destinationFolder;
     private final boolean overwriteExistingFiles;
-    private Throwable internalWorkerException = null;
     private final Comparator<Path> fileComparator;
+    private Throwable internalWorkerException = null;
 
     protected static SwingCopyJob getCopyJob(Path pathToBeCopied, Path destinationFolder, boolean recursiveCopy, boolean overwriteExistingFiles, Comparator<Path> fileComparator, SwingCopyJobListener swingCopyJobListener) throws IllegalStateException {
         if ((pathToBeCopied == null) || (!Files.exists(pathToBeCopied, LinkOption.NOFOLLOW_LINKS))) {

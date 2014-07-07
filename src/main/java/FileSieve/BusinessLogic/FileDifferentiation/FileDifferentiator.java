@@ -1,31 +1,32 @@
 package FileSieve.BusinessLogic.FileDifferentiation;
 
+import java.io.File;
 import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.util.AbstractMap.SimpleImmutableEntry;
+import java.util.List;
 import java.util.Map;
 
 /**
- * Interface specializing in identification of file differences.
+ * Defines a type specializing in the identification of duplicated files.
  */
 public interface FileDifferentiator {
 
     /**
      * Returns a list of duplicated files within a given list of files.
      *
-     * @param pathNames                 list of files to be searched for duplicates
-     * @return                          list of file lists - each list contains files identified as duplicates of each other
+     * @param pathnames     a Map containing paths and basic file attributes of files to be analyzed for duplicates
+     * @return              a list containing key-value pairs with the name of a files found to have at least one
+     *                      duplicate as the keys and lists of pathnames of the duplicated files as values
      */
-    public Map<Path, BasicFileAttributes> getDuplicatedFiles(Map<Path, BasicFileAttributes> pathNames);
+    public List<SimpleImmutableEntry<String, List<File>>> getDuplicatedFiles(Map<Path, BasicFileAttributes> pathnames);
 
     /**
-     * Returns a list of files that are missing or otherwise different from those in a reference folder.
+     * Enables the provision of a function object to be used in calculating a hash from one or more attributes of
+     * a file's Path or BasicFileAttributes objects. The hash defines how two or more files for equality.
      *
-     * @param referencePathName         pathname of reference folder
-     * @param targetPathName            pathname of folder containing files to be compared to those in the reference
-     * @param <T>                       class extending BasicFileAttributes class, inheriting basic
-     *                                  attributes, and encompassing reason(s) for file difference(s)
-     * @return
+     * @param fileHashCalculator    instance of a FileHashCalculator to be used in calculating hash codes for files
      */
-    public <T extends BasicFileAttributes> Map<Path, T> getFileDifferences(Map<Path, BasicFileAttributes> referencePathName, Map<Path, BasicFileAttributes> targetPathName);
+    public void setFileHashCalculator(FileHashCalculator fileHashCalculator);
 
 } // interface FileDifferentiator

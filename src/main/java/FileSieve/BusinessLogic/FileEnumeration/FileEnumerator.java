@@ -9,22 +9,22 @@ import java.util.Map;
 /**
  * Package-private interface defining methods for enumeration of files and folders within given source paths.
  */
-interface FileEnumerator {
+public interface FileEnumerator {
 
     /**
-     * Returns a count for the number of files (excludes folders) discovered during the most recently completed
-     * file enumeration.
+     * Returns a count for the number of files discovered during the most recently completed file enumeration.
+     * The count excludes folders.
      *
-     * @return  count of the number of previously discovered files
+     * @return  count of the number of discovered files from most recent enumeration
      */
-    public int getFileCountFromLastEnumeration();
+    public int getFileCount();
 
     /**
      * Returns the sum of the bytes of the files discovered during the most recently completed file enumeration.
      *
-     * @return  sum of the bytes of previously discovered files
+     * @return  sum of the bytes of discovered files from most recent enumeration
      */
-    public long getTotalFileByteCountFromLastEnumeration();
+    public long getByteCount();
 
     /**
      * Returns a list of discovered files and folders amongst a list of provided pathnames. The returned list is in the

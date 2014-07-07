@@ -8,7 +8,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Package-private interface specializing in the identification of duplicated files.
+ * Defines a type specializing in the identification of duplicated files.
  */
 public interface FileDifferentiator {
 
@@ -20,5 +20,13 @@ public interface FileDifferentiator {
      *                      duplicate as the keys and lists of pathnames of the duplicated files as values
      */
     public List<SimpleImmutableEntry<String, List<File>>> getDuplicatedFiles(Map<Path, BasicFileAttributes> pathnames);
+
+    /**
+     * Enables the provision of a function object to be used in calculating a hash from one or more attributes of
+     * a file's Path or BasicFileAttributes objects. The hash defines how two or more files for equality.
+     *
+     * @param fileHashCalculator    instance of a FileHashCalculator to be used in calculating hash codes for files
+     */
+    public void setFileHashCalculator(FileHashCalculator fileHashCalculator);
 
 } // interface FileDifferentiator

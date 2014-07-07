@@ -15,21 +15,36 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Class for the discovery of files and folders in given search paths
+ * Class for the discovery of files and folders in one or more search paths. The returns Map with
+ * key-value pairs of Path-BasicFileAttributes may be passed to a method(s) of a FileDifferentiator of FileManager
+ * object. This class has package-private access.
  */
-public class FileDiscoverer implements FileEnumerator {
+class FileDiscoverer implements FileEnumerator {
 
     private int fileCountFromLastEnumeration = 0;
     private long totalFileByteCountFromLastEnumeration = 0;
+
+    // Used in determining when the above two counters should be reset to zero (when a new file enumeration has begun)
     private int recursionLevel = 0;
 
+    /**
+     * Returns a count for the number of files discovered during the most recently completed file enumeration.
+     * The count excludes folders.
+     *
+     * @return  count of the number of discovered files from most recent enumeration
+     */
     @Override
-    public int getFileCountFromLastEnumeration() {
+    public int getFileCount() {
         return fileCountFromLastEnumeration;
     }
 
+    /**
+     * Returns the sum of the bytes of the files discovered during the most recently completed file enumeration.
+     *
+     * @return  sum of the bytes of discovered files from most recent enumeration
+     */
     @Override
-    public long getTotalFileByteCountFromLastEnumeration() {
+    public long getByteCount() {
         return totalFileByteCountFromLastEnumeration;
     }
 
@@ -48,12 +63,12 @@ public class FileDiscoverer implements FileEnumerator {
      */
     @Override
     public Map<Path, BasicFileAttributes> getPathnames(List<Path> pathsToEnumerate, boolean recursiveSearch) throws IOException {
+        // Reset file and byte counts to zero if this is the start of a new enumeration
         if (recursionLevel == 0) {
             fileCountFromLastEnumeration = 0;
             totalFileByteCountFromLastEnumeration = 0;
         }
 
-        //System.out.println(recursionLevel);
         ++recursionLevel;
 
         try {
@@ -133,9 +148,9 @@ public class FileDiscoverer implements FileEnumerator {
                                     try {
                                         pathMap.putAll(getPathnames(path, true));
 
-                                    /* Rethrow exceptions, should they occur, and decrement the recursionLevel counter.
-                                       Maintains a valid state for the recursionLevel counter */
-                                    } catch (Exception e) {
+                                    /* Rethrow IOException and decrement the recursionLevel counter. This
+                                       try-catch-finally block maintains a valid state for the recursionLevel counter */
+                                    } catch (IOException e) {
                                         throw e;
                                     } finally {
                                         --recursionLevel;
@@ -149,9 +164,9 @@ public class FileDiscoverer implements FileEnumerator {
 
             return pathMap;
 
-        /* Rethrow exceptions, should they occur, and decrement the recursionLevel counter.
-           Maintains a valid state for the recursionLevel counter */
-        } catch (Exception e) {
+        /* Rethrow IOException and decrement the recursionLevel counter. This try-catch-finally block maintains
+           a valid state for the recursionLevel counter */
+        } catch (IOException e) {
             throw e;
         } finally {
             --recursionLevel;

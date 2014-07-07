@@ -1,6 +1,7 @@
 package FileSieve.BusinessLogic.FileDifferentiator;
 
-import FileSieve.BusinessLogic.FileDifferentiation.DuplicateFileFinder;
+import FileSieve.BusinessLogic.FileDifferentiation.FileDifferentiator;
+import FileSieve.BusinessLogic.FileDifferentiation.FileDifferentiatorFactory;
 import FileSieve.BusinessLogic.FileManagement.FileManagerFactory;
 import FileSieve.BusinessLogic.FileManagement.SwingFileManager;
 import org.junit.After;
@@ -22,7 +23,7 @@ import java.util.Map;
 
 public class DuplicateFileFinderTest {
 
-    private final DuplicateFileFinder duplicateFinder = new DuplicateFileFinder();
+    private final FileDifferentiator fileDifferentiator = FileDifferentiatorFactory.getFileDifferentiator();
     private final SwingFileManager fileManager = FileManagerFactory.getSwingFileManager();
     private final String userTempFolder = System.getProperty("java.io.tmpdir");
     private final Path fileDifferentiationTestFolder = new File(userTempFolder + "FileDifferentiationTestFolder").toPath();
@@ -45,7 +46,7 @@ public class DuplicateFileFinderTest {
     public void testGetDuplicatedFiles() {
         // List<SimpleImmutableEntry<String, List<File>>> getDuplicatedFiles(Map<Path, BasicFileAttributes> pathnames)
 
-        List<SimpleImmutableEntry<String, List<File>>> duplicates = duplicateFinder.getDuplicatedFiles(pathnames);
+        List<SimpleImmutableEntry<String, List<File>>> duplicates = fileDifferentiator.getDuplicatedFiles(pathnames);
 
         Assert.assertTrue("1 file with name of \"file.dat\" was found to have duplicates", (duplicates.size() == 1) && (duplicates.get(0).getKey().equals("file.dat")));
 

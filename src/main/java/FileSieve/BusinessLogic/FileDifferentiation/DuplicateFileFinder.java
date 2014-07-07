@@ -9,13 +9,17 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class DuplicateFileFinder implements FileDifferentiator, FileHashCalculator {
+/**
+ * Implementation of a FileDifferentiator for identifying duplicate files amongst a passed list (Map) of Path objects.
+ * This class has package-private access.
+ */
+class DuplicateFileFinder implements FileDifferentiator, FileHashCalculator {
 
     private FileHashCalculator fileHashCalculator = null;
 
-    public DuplicateFileFinder() { }
+    protected DuplicateFileFinder() { }
 
-    public DuplicateFileFinder(FileHashCalculator fileHashCalculator) {
+    protected DuplicateFileFinder(FileHashCalculator fileHashCalculator) {
         this.setFileHashCalculator(fileHashCalculator);
     }
 
@@ -82,14 +86,15 @@ public class DuplicateFileFinder implements FileDifferentiator, FileHashCalculat
         return result;
     }
 
+    @Override
     public void setFileHashCalculator(FileHashCalculator fileHashCalculator) {
         this.fileHashCalculator = fileHashCalculator;
     }
 
     /**
-     * Default implementation for calculating a hashcode for a given Path object using its BasicFileAttributes.
-     * This implementation factors in only the file names and the file length, the latter being part of the passed
-     * BasicFileAttributes for the Path object.
+     * Default implementation for calculating a hash code for a file from attributes of its Path and BasicFileAttributes
+     * objects. This implementation factors in only the name and byte length of a file, the latter coming from the
+     * passed BasicFileAttributes for the file.
      *
      * @param path                  Path object for which to generate a hash code
      * @param basicFileAttributes   BasicFileAttributes object for the passed Path
@@ -104,4 +109,4 @@ public class DuplicateFileFinder implements FileDifferentiator, FileHashCalculat
         return result;
     }
 
-}
+} // class DuplicateFileFinder implements FileDifferentiator, FileHashCalculator

@@ -22,7 +22,7 @@ import java.util.Map;
  */
 public class FileDiscovererTest {
 
-    private final FileDiscoverer fileDiscoverer = new FileDiscoverer();
+    private final FileEnumerator fileEnumerator = FileEnumeratorFactory.getFileEnumerator();
     private final SwingFileManager fileManager = FileManagerFactory.getSwingFileManager();
     private final String userTempFolder = System.getProperty("java.io.tmpdir");
     private final Path fileEnumerationTestFolder = new File(userTempFolder + "FileEnumerationTestFolder").toPath();
@@ -56,10 +56,10 @@ public class FileDiscovererTest {
     @Test
     public void testGetPathnamesWithoutRecursion() throws IOException {
         recursiveSearches = false;    // prepare for non-recursive searches
-        commonTestCode(fileDiscoverer.getPathnames(listOfPaths, false));
+        commonTestCode(fileEnumerator.getPathnames(listOfPaths, false));
 
-        Assert.assertEquals("file discovery found 4 files", 4, fileDiscoverer.getFileCountFromLastEnumeration());
-        Assert.assertEquals("file discovery reports proper number of bytes for sum of file byte lengths", expectedFileBytesWithoutRecursion, fileDiscoverer.getTotalFileByteCountFromLastEnumeration());
+        Assert.assertEquals("file discovery found 4 files", 4, fileEnumerator.getFileCount());
+        Assert.assertEquals("file discovery reports proper number of bytes for sum of file byte lengths", expectedFileBytesWithoutRecursion, fileEnumerator.getByteCount());
     }
 
     /**
@@ -70,10 +70,10 @@ public class FileDiscovererTest {
     @Test
     public void testGetPathnamesWithRecursion() throws IOException {
         recursiveSearches = true;     // prepare for recursive searches
-        commonTestCode(fileDiscoverer.getPathnames(listOfPaths));
+        commonTestCode(fileEnumerator.getPathnames(listOfPaths));
 
-        Assert.assertEquals("file discovery found 8 files", 8, fileDiscoverer.getFileCountFromLastEnumeration());
-        Assert.assertEquals("file discovery reports proper number of bytes for sum of file byte lengths", expectedFileBytesWithRecursion, fileDiscoverer.getTotalFileByteCountFromLastEnumeration());
+        Assert.assertEquals("file discovery found 8 files", 8, fileEnumerator.getFileCount());
+        Assert.assertEquals("file discovery reports proper number of bytes for sum of file byte lengths", expectedFileBytesWithRecursion, fileEnumerator.getByteCount());
 
         /* Call "testGetPathnamesWithRecursion" test method to ensure proper values are reported for the
            discovered file count and total bytes */

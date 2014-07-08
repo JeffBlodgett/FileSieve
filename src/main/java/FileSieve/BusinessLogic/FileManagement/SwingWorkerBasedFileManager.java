@@ -1,14 +1,10 @@
 package FileSieve.BusinessLogic.FileManagement;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.LinkOption;
 import java.nio.file.Path;
-import java.nio.file.attribute.BasicFileAttributes;
-import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.List;
-import java.util.Map;
+import java.util.LinkedHashSet;
+import java.util.Set;
 
 /**
  * Concrete file manager class which inherits FileCopier and FileDeleter implementations from the AbstractFileManager
@@ -40,19 +36,13 @@ final class SwingWorkerBasedFileManager extends AbstractFileManager<SwingCopyJob
      *                                  being written to by a dissimilar copy job
      */
     @Override
-    public SwingCopyJob copyPathnames(List<Path> sourcePathnames, Path targetPathname, boolean recursionEnabled, boolean overwriteExistingFiles, Comparator<Path> fileComparator) throws IOException {
+    public SwingCopyJob copyPathnames(Set<Path> sourcePathnames, Path targetPathname, boolean recursionEnabled, boolean overwriteExistingFiles, Comparator<Path> fileComparator) throws IOException {
         if (sourcePathnames == null) {
             throw new NullPointerException("null reference provided for sourcePathnames parameter");
         }
         if (targetPathname == null) {
             throw new NullPointerException("null path provided for targetPathname parameter");
         }
-
-//        for (Path path : sourcePathnames) {
-//            if ((path == null) || (!Files.exists(path, LinkOption.NOFOLLOW_LINKS))) {
-//                throw new IllegalArgumentException("a path included within the \"sourcePathnames\" list does not exist");
-//            }
-//        }
 
         return SwingCopyJob.getCopyJob(sourcePathnames, targetPathname, recursionEnabled, overwriteExistingFiles, fileComparator, swingCopyJobListener);
     }
@@ -66,11 +56,7 @@ final class SwingWorkerBasedFileManager extends AbstractFileManager<SwingCopyJob
             throw new NullPointerException("null path provided for targetPathname parameter");
         }
 
-//        if (Files.exists(sourcePathname, LinkOption.NOFOLLOW_LINKS)) {
-//            throw new IllegalArgumentException("the provided Path to copy abstracts a non-existent file or folder");
-//        }
-
-        List<Path> sourcePathnames = new ArrayList<Path>(1);
+        Set<Path> sourcePathnames = new LinkedHashSet<>(1);
         sourcePathnames.add(sourcePathname);
 
         return copyPathnames(sourcePathnames, targetPathname, recursionEnabled, overwriteExistingFiles, fileComparator);

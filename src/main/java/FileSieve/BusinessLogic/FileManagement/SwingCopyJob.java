@@ -15,8 +15,10 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.AbstractMap.SimpleImmutableEntry;
 
@@ -32,7 +34,7 @@ public final class SwingCopyJob {
     private final List<SwingCopyJobListener> swingCopyJobListeners = Collections.synchronizedList(new ArrayList<SwingCopyJobListener>(10));
     private final BackgroundCopyWorker worker;
     private final boolean recursiveCopy;
-    private final List<Path> pathsBeingCopied;
+    private final Set<Path> pathsBeingCopied;
     private final Path destinationFolder;
     private final boolean overwriteExistingFiles;
     private final Comparator<Path> fileComparator;
@@ -51,7 +53,7 @@ public final class SwingCopyJob {
      * @throws IllegalStateException
      * @throws IOException              thrown if an IOException is encountered while converting source paths to real paths
      */
-    protected static SwingCopyJob getCopyJob(List<Path> pathsToBeCopied, Path destinationFolder, boolean recursiveCopy, boolean overwriteExistingFiles, Comparator<Path> fileComparator, SwingCopyJobListener swingCopyJobListener) throws IllegalStateException, IOException {
+    protected static SwingCopyJob getCopyJob(Set<Path> pathsToBeCopied, Path destinationFolder, boolean recursiveCopy, boolean overwriteExistingFiles, Comparator<Path> fileComparator, SwingCopyJobListener swingCopyJobListener) throws IllegalStateException, IOException {
         if (pathsToBeCopied == null) {
             throw new IllegalArgumentException("null reference passed for \"pathsToBeCopied\" parameter");
         }
@@ -60,7 +62,7 @@ public final class SwingCopyJob {
         }
 
         // Convert paths to real paths. This has the added benefit of "cloning" passed Path objects.
-        List<Path> realPaths = new ArrayList<Path>(pathsToBeCopied.size());
+        Set<Path> realPaths = new LinkedHashSet<>(pathsToBeCopied.size());
         for (Path path : pathsToBeCopied) {
             if ((path == null) || (!Files.exists(path, LinkOption.NOFOLLOW_LINKS))) {
                 throw new IllegalArgumentException("a path included within the \"sourcePathnames\" list does not exist");
@@ -134,7 +136,7 @@ public final class SwingCopyJob {
      *                                  length in bytes.
      * @param swingCopyJobListener
      */
-    private SwingCopyJob(List<Path> pathsBeingCopied, Path destinationFolder, boolean recursiveCopy, boolean overwriteExistingFiles, Comparator<Path> fileComparator, SwingCopyJobListener swingCopyJobListener) {
+    private SwingCopyJob(Set<Path> pathsBeingCopied, Path destinationFolder, boolean recursiveCopy, boolean overwriteExistingFiles, Comparator<Path> fileComparator, SwingCopyJobListener swingCopyJobListener) {
         this.pathsBeingCopied = pathsBeingCopied;
         this.destinationFolder = destinationFolder;
         this.recursiveCopy = recursiveCopy;

@@ -37,16 +37,12 @@ public class SwingWorkerBasedFileManagerTest implements SwingCopyJobListener {
     }
 
     @After
-    public void cleanup() {
-        try {
-            Files.deleteIfExists(file);
+    public void cleanup() throws IOException {
+        Files.deleteIfExists(file);
 
-            if (deletePathnameTestsPassed) {
-                swingFileManager.deletePathname(folder);
-                swingFileManager.deletePathname(anotherFolder);
-            }
-        } catch (SecurityException | IOException e) {
-            // Ignore exceptions
+        if (deletePathnameTestsPassed) {
+            swingFileManager.deletePathname(folder);
+            swingFileManager.deletePathname(anotherFolder);
         }
     }
 

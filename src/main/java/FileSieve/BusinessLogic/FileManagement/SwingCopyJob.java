@@ -73,7 +73,8 @@ public final class SwingCopyJob {
 
         SwingCopyJob jobToReturn = null;
 
-        // Create a SwingCopyJob from the passed parameters but don't start (execute) its SwingWorker yet
+        /* Create a SwingCopyJob from the passed parameters but don't start (execute) its SwingWorker yet whereas we
+           want to check for the existence of a similar ongoing job. */
         SwingCopyJob newJob = new SwingCopyJob(realPaths, destinationFolder, recursiveCopy, overwriteExistingFiles, fileComparator, swingCopyJobListener);
 
         synchronized (swingCopyJobs) {
@@ -299,6 +300,7 @@ public final class SwingCopyJob {
         private long totalBytes = 0L;
         private long copiedBytes = 0L;
         private int totalPercentCopied = 0;
+        private int copyPathsRecursionLevel = 0;
 
         protected BackgroundCopyWorker(SwingCopyJob enclosingSwingCopyJob) throws IllegalArgumentException {
             if (enclosingSwingCopyJob == null) {
@@ -466,18 +468,40 @@ public final class SwingCopyJob {
 
                         for (Path path : filePaths) {
                             if (Files.isDirectory(path)) {
-                                Path folderToCreate = path.subpath(sourcePath.getNameCount(), path.getNameCount());
+                                Path newTargetPath;
+                                if (copyPathsRecursionLevel == 0) {
+                                    newTargetPath = targetPath.resolve(sourcePath.getFileName().resolve(path.getFileName()));
+                                } else {
+                                    newTargetPath = targetPath.resolve(path.getFileName());
+                                }
 
-                                targetPath = targetPath.resolve(folderToCreate);
+                                if (!Files.exists(newTargetPath)) {
+                                    Files.createDirectory(newTargetPath);
+                                }
 
-                                Files.createDirectory(targetPath);
-                                publish(new SimpleImmutableEntry<>(targetPath, PATHNAME_COPY_AT_100_PERCENT));
+                                publish(new SimpleImmutableEntry<>(newTargetPath, PATHNAME_COPY_AT_100_PERCENT));
 
-                            }
+                                if (thisSwingCopyJob.recursiveCopy) {
+                                    ++copyPathsRecursionLevel;
+                                    try {
+                                        copyPaths(path, newTargetPath);
+                                    } finally {
+                                        --copyPathsRecursionLevel;
+                                    }
+                                }
 
-                            if ((Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)) || ((Files.isDirectory(path)) && thisSwingCopyJob.recursiveCopy)) {
-                                // Recursive call: copy file or folder specified by "path" variable to the "targetPath" folder
-                                copyPaths(path, targetPath);
+                            } else if (Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)) {
+                                if (copyPathsRecursionLevel == 0) {
+                                    Path newTargetPath = targetPath.resolve(sourcePath.getFileName());
+
+                                    if (!Files.exists(newTargetPath)) {
+                                        Files.createDirectory(newTargetPath);
+                                    }
+
+                                    copyFile(path, newTargetPath);
+                                } else {
+                                    copyFile(path, targetPath);
+                                }
                             }
                         }
 

@@ -1,10 +1,10 @@
 package FileSieve.BusinessLogic.FileManagement;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.util.Comparator;
+import java.util.LinkedHashSet;
+import java.util.Set;
 
 /**
  * Concrete file manager class which inherits FileCopier and FileDeleter implementations from the AbstractFileManager
@@ -20,12 +20,11 @@ final class SwingWorkerBasedFileManager extends AbstractFileManager<SwingCopyJob
     }
 
     /**
-     * Copy's a file or folder, recursively or not, to a destination folder
+     * Copy's a list of source pathnames (folders and/or files) to a destination folder, with or without recursion
      *
-     * @param sourcePathname            pathname of file or folder to copy
+     * @param sourcePathnames           pathnames of folders and/or files to copy
      * @param targetPathname            pathname of file or folder to create/write
-     * @param recursionEnabled          recursive search for and copying of files and subfolders with subfolders of the
-     *                                  sourcePathname
+     * @param recursionEnabled          recursive search for and copying of files and subfolders within subfolders of the paths in the sourcePathnames list
      * @param overwriteExistingFiles    indicates if files pre-existing files found in the target path should be
      *                                  overwritten if the fileComparator determines that they are different than their
      *                                  source path equivalents
@@ -37,13 +36,30 @@ final class SwingWorkerBasedFileManager extends AbstractFileManager<SwingCopyJob
      *                                  being written to by a dissimilar copy job
      */
     @Override
-    public SwingCopyJob copyPathname(Path sourcePathname, Path targetPathname, boolean recursionEnabled, boolean overwriteExistingFiles, Comparator<Path> fileComparator) throws IOException, IllegalStateException {
-        if (sourcePathname == null) throw new NullPointerException("null path provided for sourcePathname parameter");
-        if (targetPathname == null) throw new NullPointerException("null path provided for targetPathname parameter");
+    public SwingCopyJob copyPathnames(Set<Path> sourcePathnames, Path targetPathname, boolean recursionEnabled, boolean overwriteExistingFiles, Comparator<Path> fileComparator) throws IOException {
+        if (sourcePathnames == null) {
+            throw new NullPointerException("null reference provided for sourcePathnames parameter");
+        }
+        if (targetPathname == null) {
+            throw new NullPointerException("null path provided for targetPathname parameter");
+        }
 
-        if (!Files.exists(sourcePathname, LinkOption.NOFOLLOW_LINKS)) throw new IllegalArgumentException("file or folder specified by \"sourcePathname\" parameter does not exist");
+        return SwingCopyJob.getCopyJob(sourcePathnames, targetPathname, recursionEnabled, overwriteExistingFiles, fileComparator, swingCopyJobListener);
+    }
 
-        return SwingCopyJob.getCopyJob(sourcePathname, targetPathname, recursionEnabled, overwriteExistingFiles, fileComparator, swingCopyJobListener);
+    @Override
+    public SwingCopyJob copyPathname(Path sourcePathname, Path targetPathname, boolean recursionEnabled, boolean overwriteExistingFiles, Comparator<Path> fileComparator) throws IOException {
+        if (sourcePathname == null) {
+            throw new NullPointerException("null reference provided for sourcePathname parameter");
+        }
+        if (targetPathname == null) {
+            throw new NullPointerException("null path provided for targetPathname parameter");
+        }
+
+        Set<Path> sourcePathnames = new LinkedHashSet<>(1);
+        sourcePathnames.add(sourcePathname);
+
+        return copyPathnames(sourcePathnames, targetPathname, recursionEnabled, overwriteExistingFiles, fileComparator);
     }
 
     /**

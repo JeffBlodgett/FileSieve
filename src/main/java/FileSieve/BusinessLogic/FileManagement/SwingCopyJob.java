@@ -46,9 +46,9 @@ public final class SwingCopyJob {
     /**
      * Static factory method for creating or retrieving a reference to an equivalent (and ongoing) SwingCopyJob.
      *
-     * @param pathsToBeCopied           list of Path objects abstracting folders or files to copy
-     * @param destinationFolder         target folder to which file and folder copies are to be placed
-     * @param recursiveCopy
+     * @param pathsToBeCopied           list of Path objects abstracting folders and/or files to copy
+     * @param destinationFolder         destination folder to which file and folder copies are to be placed
+     * @param recursiveCopy             boolean value indicating whether or not folders should be search recursively for additional folders and files
      * @param overwriteExistingFiles
      * @param fileComparator
      * @param swingCopyJobListener
@@ -438,7 +438,7 @@ public final class SwingCopyJob {
 
             try {
                 for (Path path : thisSwingCopyJob.pathsBeingCopied) {
-                    if ((!isCancelled())) {
+                    if (!isCancelled()) {
                         copyPaths(path, thisSwingCopyJob.destinationFolder);
                     }
                 }
@@ -464,7 +464,7 @@ public final class SwingCopyJob {
                 if (!sourcePath.equals(thisSwingCopyJob.destinationFolder)) {
 
                     if (!Files.exists(targetPath)) {
-                        targetPath = Files.createDirectories(targetPath);
+                        targetPath.toFile().mkdirs();
                         if (targetPath.equals(thisSwingCopyJob.destinationFolder)) {
                             publish(new AbstractMap.SimpleImmutableEntry<>(targetPath, ZERO_PERCENT));
                         }
@@ -489,7 +489,7 @@ public final class SwingCopyJob {
                                     }
 
                                     if (!Files.exists(newTargetPath)) {
-                                        Files.createDirectory(newTargetPath);
+                                        newTargetPath.toFile().mkdir();
                                     }
 
                                     publish(new SimpleImmutableEntry<>(newTargetPath, PATHNAME_COPY_AT_100_PERCENT));
@@ -508,7 +508,7 @@ public final class SwingCopyJob {
                                         Path newTargetPath = targetPath.resolve(sourcePath.getFileName());
 
                                         if (!Files.exists(newTargetPath)) {
-                                            Files.createDirectory(newTargetPath);
+                                            newTargetPath.toFile().mkdir();
                                         }
 
                                         copyFile(path, newTargetPath);
@@ -533,11 +533,11 @@ public final class SwingCopyJob {
                             if (pathToCreateInTargetFolder != null) {
                                 Path newPathToCreate = targetPath.resolve(pathToCreateInTargetFolder);
                                 if (!Files.exists(newPathToCreate)) {
-                                    Files.createDirectory(newPathToCreate);
+                                    newPathToCreate.toFile().mkdir();
                                     foldersCreatedInTarget.add(pathToCreateInTargetFolder);
                                 }
                             } else if (!Files.exists(targetPath.resolve(sourcePath.getFileName()))) {
-                                Files.createDirectory(targetPath.resolve(sourcePath.getFileName()));
+                                targetPath.resolve(sourcePath.getFileName()).toFile().mkdir();
                                 foldersCreatedInTarget.add(sourcePath.getFileName());
                             }
                         }

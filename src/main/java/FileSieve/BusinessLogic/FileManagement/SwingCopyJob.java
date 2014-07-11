@@ -212,8 +212,8 @@ public final class SwingCopyJob {
         return result;
     }
 
-    public boolean Cancel() {
-        return worker.cancel(true);
+    public boolean cancelJob() {
+        return worker.cancel(false);
     }
 
     /**
@@ -261,19 +261,19 @@ public final class SwingCopyJob {
     }
 
     /**
-     * Blocks until the copy job has been completed. This method rethrows any internal exception
-     * that may have occurred within the background thread. Such an exception  causing premature termination of the copy job.
+     * Blocks until the copy job has been completed. This method rethrows internal exceptions that may have occurred
+     * within the background thread. Such an exception may cause premature termination of the copy job.
      *
      * @throws InterruptedException
      * @throws ExecutionException
      */
     public void awaitCompletion() throws InterruptedException, ExecutionException {
         synchronized (lockObject) {
-            while (!(worker.getState() == SwingWorker.StateValue.DONE)) {
+            while (worker.getState() != SwingWorker.StateValue.DONE) {
                 try {
                     lockObject.wait();
                 } catch (InterruptedException e) {
-                    // Ignore interrupt
+                    // Ignore possible spurious interrupt
                 }
             }
         }
@@ -288,7 +288,7 @@ public final class SwingCopyJob {
     }
 
     /**
-     *
+     * Custom SwingWorker for
      */
     private class BackgroundCopyWorker extends SwingWorker<Void, SimpleImmutableEntry<Path, Integer>> {
 
@@ -301,6 +301,7 @@ public final class SwingCopyJob {
         private long copiedBytes = 0L;
         private int totalPercentCopied = 0;
         private int copyPathsRecursionLevel = 0;
+        private List<Path> foldersCreatedInTarget = new ArrayList<>();
 
         protected BackgroundCopyWorker(SwingCopyJob enclosingSwingCopyJob) throws IllegalArgumentException {
             if (enclosingSwingCopyJob == null) {
@@ -362,6 +363,7 @@ public final class SwingCopyJob {
                     try {
                         get();
                     } catch (InterruptedException | ExecutionException e) {
+                        internalWorkerException = e;
                         for (SwingCopyJobListener listener : thisSwingCopyJob.swingCopyJobListeners) {
                             listener.InternalCopyJobException(thisSwingCopyJob, e);
                         }
@@ -459,55 +461,95 @@ public final class SwingCopyJob {
                     }
 
                     if (Files.isDirectory(sourcePath)) {
-                        List<Path> filePaths = new ArrayList<>(50);
-                        try (DirectoryStream<Path> dirStream = Files.newDirectoryStream(sourcePath)) {
-                            for (Path path : dirStream) {
-                                filePaths.add(path);
+                        if (recursiveCopy) {
+                            List<Path> filePaths = new ArrayList<>(50);
+                            try (DirectoryStream<Path> dirStream = Files.newDirectoryStream(sourcePath)) {
+                                for (Path path : dirStream) {
+                                    filePaths.add(path);
+                                }
                             }
-                        }
 
-                        for (Path path : filePaths) {
-                            if (Files.isDirectory(path)) {
-                                Path newTargetPath;
-                                if (copyPathsRecursionLevel == 0) {
-                                    newTargetPath = targetPath.resolve(sourcePath.getFileName().resolve(path.getFileName()));
-                                } else {
-                                    newTargetPath = targetPath.resolve(path.getFileName());
-                                }
-
-                                if (!Files.exists(newTargetPath)) {
-                                    Files.createDirectory(newTargetPath);
-                                }
-
-                                publish(new SimpleImmutableEntry<>(newTargetPath, PATHNAME_COPY_AT_100_PERCENT));
-
-                                if (thisSwingCopyJob.recursiveCopy) {
-                                    ++copyPathsRecursionLevel;
-                                    try {
-                                        copyPaths(path, newTargetPath);
-                                    } finally {
-                                        --copyPathsRecursionLevel;
+                            for (Path path : filePaths) {
+                                if (Files.isDirectory(path)) {
+                                    Path newTargetPath;
+                                    if (copyPathsRecursionLevel == 0) {
+                                        newTargetPath = targetPath.resolve(sourcePath.getFileName().resolve(path.getFileName()));
+                                    } else {
+                                        newTargetPath = targetPath.resolve(path.getFileName());
                                     }
-                                }
-
-                            } else if (Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)) {
-                                if (copyPathsRecursionLevel == 0) {
-                                    Path newTargetPath = targetPath.resolve(sourcePath.getFileName());
 
                                     if (!Files.exists(newTargetPath)) {
                                         Files.createDirectory(newTargetPath);
                                     }
 
-                                    copyFile(path, newTargetPath);
-                                } else {
-                                    copyFile(path, targetPath);
+                                    publish(new SimpleImmutableEntry<>(newTargetPath, PATHNAME_COPY_AT_100_PERCENT));
+
+                                    if (thisSwingCopyJob.recursiveCopy) {
+                                        ++copyPathsRecursionLevel;
+                                        try {
+                                            copyPaths(path, newTargetPath);
+                                        } finally {
+                                            --copyPathsRecursionLevel;
+                                        }
+                                    }
+
+                                } else if (Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)) {
+                                    if (copyPathsRecursionLevel == 0) {
+                                        Path newTargetPath = targetPath.resolve(sourcePath.getFileName());
+
+                                        if (!Files.exists(newTargetPath)) {
+                                            Files.createDirectory(newTargetPath);
+                                        }
+
+                                        copyFile(path, newTargetPath);
+                                    } else {
+                                        copyFile(path, targetPath);
+                                    }
                                 }
+                            }
+                        } else {
+                            Path pathToCreateInTargetFolder = null;
+
+                            // Determine if the folder's parent was previously created within the target folder
+                            for (int i = foldersCreatedInTarget.size() - 1; i >= 0; --i) {
+                                if (sourcePath.getParent().endsWith(foldersCreatedInTarget.get(i))) {
+                                    pathToCreateInTargetFolder = foldersCreatedInTarget.get(i).resolve(sourcePath.getFileName());
+                                    break;
+                                }
+                            }
+
+                            /* If folder's parent was previously created within the target folder then create the
+                               folder within its parent (folder), else create the folder in the root of the target */
+                            if (pathToCreateInTargetFolder != null) {
+                                Path newPathToCreate = targetPath.resolve(pathToCreateInTargetFolder);
+                                if (!Files.exists(newPathToCreate)) {
+                                    Files.createDirectory(newPathToCreate);
+                                    foldersCreatedInTarget.add(pathToCreateInTargetFolder);
+                                }
+                            } else if (!Files.exists(targetPath.resolve(sourcePath.getFileName()))) {
+                                Files.createDirectory(targetPath.resolve(sourcePath.getFileName()));
+                                foldersCreatedInTarget.add(sourcePath.getFileName());
                             }
                         }
 
                     } else {
-                        // Copy file specified by "sourcePath" parameter to the folder specified by the "targetPath"
-                        copyFile(sourcePath, targetPath);
+                        Path parentPathCreatedInTargetFolder = null;
+
+                        // Determine if the file's parent folder was created within the target folder
+                        for (int i = foldersCreatedInTarget.size() - 1; i >= 0; --i) {
+                            if (sourcePath.getParent().endsWith(foldersCreatedInTarget.get(i))) {
+                                parentPathCreatedInTargetFolder = foldersCreatedInTarget.get(i);
+                                break;
+                            }
+                        }
+
+                        if (parentPathCreatedInTargetFolder != null) {
+                            copyFile(sourcePath, targetPath.resolve(parentPathCreatedInTargetFolder));
+                        } else {
+                            // Copy file to the root of the target folder
+                            copyFile(sourcePath, targetPath);
+                        }
+
                     }
                 }
             }

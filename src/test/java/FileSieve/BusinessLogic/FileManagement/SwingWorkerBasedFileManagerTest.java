@@ -17,6 +17,7 @@ import java.nio.file.Path;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * JUnit testing for the ConcurrentFileManager class
@@ -28,6 +29,8 @@ public class SwingWorkerBasedFileManagerTest implements SwingCopyJobListener {
     private final Path fileManagementTestFolder = new File(userTempFolder + "FileManagementTestFolder").toPath();
     private final Set<Path> pathnames = new LinkedHashSet<Path>(30);
     private static boolean deletePathnameTestsPassed = false;
+    private int pathsCopied = 0;
+    private Object lockObject = new Object();
 
     @Before
     public void setup() throws IOException {
@@ -369,7 +372,7 @@ public class SwingWorkerBasedFileManagerTest implements SwingCopyJobListener {
         Assert.assertEquals("tracked copy jobs have been been removed from SwingCopyJob class' internal map", 0, SwingCopyJob.swingCopyJobs.size());
     }
 
-    //@Test - Still working on this one...
+    @Test
     public void testCopyPathnames_Cancel() throws IOException {
         if (!deletePathnameTestsPassed) {
             Assert.fail("testing of copyPathname method depends on deletePathname testing, one or assertions for which failed");
@@ -384,14 +387,25 @@ public class SwingWorkerBasedFileManagerTest implements SwingCopyJobListener {
 
         Path targetFolder = fileManagementTestFolder.resolve("targetFolder");
 
+        pathsCopied = 0;
+
         // Copy a folder, with the contents of all subfolders (recursion option = true), to a non-existent target folder
         SwingCopyJob swingCopyJob = swingFileManager.copyPathnames(pathsToCopy, targetFolder, true, false, null);
         if (swingCopyJob != null) {
             try {
+                // Let the copy job proceed until 10 paths have been copied or 50ms have passed before cancelling it
+                while(pathsCopied <= 1) {
+                    synchronized(lockObject) {
+                        lockObject.wait(50);
+                    }
+                }
                 Assert.assertTrue("job was successfully issued a cancel request", swingCopyJob.cancelJob());
+
+                // exceptions that occur on internal SwingWorker's background thread are rethrown by this method
                 swingCopyJob.awaitCompletion();
 
-                Assert.assertTrue("recursive copying of a list of files and folders created less than 30 files/folders in the target folder due to immediate cancellation of job", getChildCount(targetFolder) < 30);
+                int pathsCreated = getChildCount(targetFolder);
+                Assert.assertTrue("recursive copying of a list of files and folders created at least 1 but less than 30 files/folders in the target folder due to job cancellation", (pathsCreated > 1) && (pathsCreated < 30));
 
             } catch (InterruptedException e) {
                 Assert.fail("InterruptedException during BackgroundCopyWorker execution, recursive copying of a folder");
@@ -442,6 +456,15 @@ public class SwingWorkerBasedFileManagerTest implements SwingCopyJobListener {
 
     @Override
     public void UpdatePathnameCopyProgress(SwingCopyJob swingCopyJob, Path pathnameBeingCopied, int percentProgressed) {
+        if (percentProgressed == 100) {
+            pathsCopied++;
+
+            if (pathsCopied > 1) {
+                synchronized(lockObject) {
+                    lockObject.notify();
+                }
+            }
+        }
         // System.out.println(pathnameBeingCopied + "    " + swingCopyJob.getDestinationFolder() + "    " + percentProgressed + "%");
     }
 

@@ -19,8 +19,10 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.AbstractMap.SimpleImmutableEntry;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Copy job
@@ -38,14 +40,15 @@ public final class SwingCopyJob {
     private final Path destinationFolder;
     private final boolean overwriteExistingFiles;
     private final Comparator<Path> fileComparator;
+    private final AtomicBoolean backgroundThreadIsRunning = new AtomicBoolean(false);
     private Throwable internalWorkerException = null;
 
     /**
      * Static factory method for creating or retrieving a reference to an equivalent (and ongoing) SwingCopyJob.
      *
-     * @param pathsToBeCopied           list of Path objects abstracting folders or files to copy
-     * @param destinationFolder         target folder to which file and folder copies are to be placed
-     * @param recursiveCopy
+     * @param pathsToBeCopied           list of Path objects abstracting folders and/or files to copy
+     * @param destinationFolder         destination folder to which file and folder copies are to be placed
+     * @param recursiveCopy             boolean value indicating whether or not folders should be search recursively for additional folders and files
      * @param overwriteExistingFiles
      * @param fileComparator
      * @param swingCopyJobListener
@@ -212,6 +215,13 @@ public final class SwingCopyJob {
         return result;
     }
 
+    /**
+     * Cancels the copy job. Callers of this method may wish to follow it's use with a call to the awaitCompletion()
+     * method, which blocks until the job's background thread has truly completed.
+     *
+     * @return  boolean true if the request to cancel was successfully issued to the background worker thread, false
+     *          if the request to cancel was ignored (typically because the job has already been completed)
+     */
     public boolean cancelJob() {
         return worker.cancel(false);
     }
@@ -221,7 +231,7 @@ public final class SwingCopyJob {
      *
      * @return  List<Path> representing the files and/or folders being copied
      */
-    public List<Path> getPathBeingCopied() {
+    public List<Path> getPathsBeingCopied() {
         List<Path> copiedList = new ArrayList<>(this.pathsBeingCopied.size());
 
         for (Path path : this.pathsBeingCopied) {
@@ -257,11 +267,11 @@ public final class SwingCopyJob {
      * @return  boolean true if the copy job is running, false if not
      */
     public boolean isRunning() {
-        return (worker.getState() == SwingWorker.StateValue.DONE);
+        return ((worker.getState() == SwingWorker.StateValue.DONE) && (!backgroundThreadIsRunning.get()));
     }
 
     /**
-     * Blocks until the copy job has been completed. This method rethrows internal exceptions that may have occurred
+     * Blocks until the copy job has completed. This method rethrows internal exceptions that may have occurred
      * within the background thread. Such an exception may cause premature termination of the copy job.
      *
      * @throws InterruptedException
@@ -269,11 +279,11 @@ public final class SwingCopyJob {
      */
     public void awaitCompletion() throws InterruptedException, ExecutionException {
         synchronized (lockObject) {
-            while (worker.getState() != SwingWorker.StateValue.DONE) {
+            while ((worker.getState() != SwingWorker.StateValue.DONE) || (backgroundThreadIsRunning.get())) {
                 try {
                     lockObject.wait();
                 } catch (InterruptedException e) {
-                    // Ignore possible spurious interrupt
+                    // catch spurious interrupts
                 }
             }
         }
@@ -288,7 +298,7 @@ public final class SwingCopyJob {
     }
 
     /**
-     * Custom SwingWorker for
+     * Extended SwingWorker for internal use by SwingCopyJob. Executes the copy operation on a background thread.
      */
     private class BackgroundCopyWorker extends SwingWorker<Void, SimpleImmutableEntry<Path, Integer>> {
 
@@ -322,24 +332,30 @@ public final class SwingCopyJob {
             for (SimpleImmutableEntry<Path, Integer> pair : updates) {
                 Map<Path, Integer> copyJobProgressions = swingCopyJobs.get(thisSwingCopyJob);
 
-                boolean isCopyJobUpdate = false;    // (as opposed to a progress update for a particular file or subfolder)
+                /* Ensure this SwingCopyJob is still being tracked before attempting to "put" data. This situation
+                   can arise when the job was cancelled via the cancel() method. The cancel() method call's the Done()
+                   method could, which may remove the reference to the job prior to chunks of data (i.e. updates) being
+                   processed by this method. */
+                if (copyJobProgressions != null) {
+                    boolean isCopyJobUpdate = false;    // as opposed to a progress update for a particular file or subfolder
 
                 /* Updates coming from the background thread are identified using the targeted file or folder of the copy
                    operation or the copy job's overall destination folder */
-                if (pair.getKey().equals(thisSwingCopyJob.destinationFolder)) {
-                    isCopyJobUpdate = true;
-                }
+                    if (pair.getKey().equals(thisSwingCopyJob.destinationFolder)) {
+                        isCopyJobUpdate = true;
+                    }
 
-                Integer oldValue = copyJobProgressions.put(pair.getKey(), pair.getValue());
-                if ((oldValue == null) || (!oldValue.equals(pair.getValue()))) {
-                    // Notify SwingCopyJobListener
-                    if (thisSwingCopyJob.swingCopyJobListeners.size() > 0) {
-                        synchronized (thisSwingCopyJob.swingCopyJobListeners) {
-                            for (SwingCopyJobListener listener : thisSwingCopyJob.swingCopyJobListeners) {
-                                if (isCopyJobUpdate) {
-                                    listener.UpdateCopyJobProgress(thisSwingCopyJob, pair.getValue());
-                                } else {
-                                    listener.UpdatePathnameCopyProgress(thisSwingCopyJob, pair.getKey(), pair.getValue());
+                    Integer oldValue = copyJobProgressions.put(pair.getKey(), pair.getValue());
+                    if ((oldValue == null) || (!oldValue.equals(pair.getValue()))) {
+                        // Notify SwingCopyJobListener
+                        if (thisSwingCopyJob.swingCopyJobListeners.size() > 0) {
+                            synchronized (thisSwingCopyJob.swingCopyJobListeners) {
+                                for (SwingCopyJobListener listener : thisSwingCopyJob.swingCopyJobListeners) {
+                                    if (isCopyJobUpdate) {
+                                        listener.UpdateCopyJobProgress(thisSwingCopyJob, pair.getValue());
+                                    } else {
+                                        listener.UpdatePathnameCopyProgress(thisSwingCopyJob, pair.getKey(), pair.getValue());
+                                    }
                                 }
                             }
                         }
@@ -350,7 +366,9 @@ public final class SwingCopyJob {
 
         /**
          * Notifies registered CopyJobListeners that (a) the copy job been has been completed and (b) of any internal
-         * exception that might have caused the job to terminate early. This method is called on the EDT.
+         * exception that might have caused the job to terminate early. This method is called on the EDT unless the
+         * background thread was cancelled using via the cancel() method (enclosing class' cancelJob() method), in
+         * which case the method is called on the caller's thread (which may or may not be the EDT).
          */
         @Override
         public void done() {
@@ -361,22 +379,29 @@ public final class SwingCopyJob {
             if (thisSwingCopyJob.swingCopyJobListeners.size() > 0) {
                 synchronized (thisSwingCopyJob.swingCopyJobListeners) {
                     try {
+                        // This method blocks until the background thread (doInBackground() method)) has completed its work
                         get();
+                    } catch (CancellationException e) {
+                        // Background task was cancelled via cancel() method
                     } catch (InterruptedException | ExecutionException e) {
                         internalWorkerException = e;
                         for (SwingCopyJobListener listener : thisSwingCopyJob.swingCopyJobListeners) {
                             listener.InternalCopyJobException(thisSwingCopyJob, e);
                         }
-                    }
+                    } finally {
+                        for (SwingCopyJobListener listener : thisSwingCopyJob.swingCopyJobListeners) {
+                            listener.UpdateCopyJobProgress(thisSwingCopyJob, COPY_JOB_AT_100_PERCENT);
+                        }
 
-                    for (SwingCopyJobListener listener : thisSwingCopyJob.swingCopyJobListeners) {
-                        listener.UpdateCopyJobProgress(thisSwingCopyJob, COPY_JOB_AT_100_PERCENT);
-                    }
+                        thisSwingCopyJob.swingCopyJobListeners.clear();
 
-                    thisSwingCopyJob.swingCopyJobListeners.clear();
+                        // Signal that the background thread has completed its work (exception or otherwise)
+                        backgroundThreadIsRunning.set(false);
+                    }
                 }
             }
 
+            // Unblock a caller of the awaitCompletion() method is the enclosing class
             synchronized (lockObject) {
                 lockObject.notify();
             }
@@ -395,6 +420,8 @@ public final class SwingCopyJob {
          */
         @Override
         public Void doInBackground() throws IllegalStateException, SecurityException, IOException {
+            backgroundThreadIsRunning.set(true);
+
             try {
                 for (Path path : thisSwingCopyJob.pathsBeingCopied) {
                     if (Files.exists(path)) {
@@ -411,7 +438,9 @@ public final class SwingCopyJob {
 
             try {
                 for (Path path : thisSwingCopyJob.pathsBeingCopied) {
-                    copyPaths(path, thisSwingCopyJob.destinationFolder);
+                    if (!isCancelled()) {
+                        copyPaths(path, thisSwingCopyJob.destinationFolder);
+                    }
                 }
             } catch (SecurityException e) {
                 throw new SecurityException("SecurityException while reading or writing files/folders in the source or target root", e);
@@ -420,25 +449,6 @@ public final class SwingCopyJob {
             }
 
             return null;
-        }
-
-        private void retrieveTotalBytes(Path sourcePathname) throws SecurityException, IOException {
-            if (Files.isDirectory(sourcePathname)) {
-                try (DirectoryStream<Path> dirStream = Files.newDirectoryStream(sourcePathname)) {
-                    for (Path path : dirStream) {
-                        if (!isCancelled()) {
-                            // Exclude target folder if it is a subfolder of the source folder
-                            if (Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS) && (!path.equals(thisSwingCopyJob.destinationFolder) && thisSwingCopyJob.recursiveCopy)) {
-                                retrieveTotalBytes(path);
-                            } else if (Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)) {
-                                totalBytes += path.toFile().length();
-                            }
-                        }
-                    }
-                }
-            } else {
-                totalBytes += sourcePathname.toFile().length();
-            }
         }
 
         /**
@@ -454,7 +464,7 @@ public final class SwingCopyJob {
                 if (!sourcePath.equals(thisSwingCopyJob.destinationFolder)) {
 
                     if (!Files.exists(targetPath)) {
-                        targetPath = Files.createDirectories(targetPath);
+                        targetPath.toFile().mkdirs();
                         if (targetPath.equals(thisSwingCopyJob.destinationFolder)) {
                             publish(new AbstractMap.SimpleImmutableEntry<>(targetPath, ZERO_PERCENT));
                         }
@@ -479,7 +489,7 @@ public final class SwingCopyJob {
                                     }
 
                                     if (!Files.exists(newTargetPath)) {
-                                        Files.createDirectory(newTargetPath);
+                                        newTargetPath.toFile().mkdir();
                                     }
 
                                     publish(new SimpleImmutableEntry<>(newTargetPath, PATHNAME_COPY_AT_100_PERCENT));
@@ -498,7 +508,7 @@ public final class SwingCopyJob {
                                         Path newTargetPath = targetPath.resolve(sourcePath.getFileName());
 
                                         if (!Files.exists(newTargetPath)) {
-                                            Files.createDirectory(newTargetPath);
+                                            newTargetPath.toFile().mkdir();
                                         }
 
                                         copyFile(path, newTargetPath);
@@ -523,11 +533,11 @@ public final class SwingCopyJob {
                             if (pathToCreateInTargetFolder != null) {
                                 Path newPathToCreate = targetPath.resolve(pathToCreateInTargetFolder);
                                 if (!Files.exists(newPathToCreate)) {
-                                    Files.createDirectory(newPathToCreate);
+                                    newPathToCreate.toFile().mkdir();
                                     foldersCreatedInTarget.add(pathToCreateInTargetFolder);
                                 }
                             } else if (!Files.exists(targetPath.resolve(sourcePath.getFileName()))) {
-                                Files.createDirectory(targetPath.resolve(sourcePath.getFileName()));
+                                targetPath.resolve(sourcePath.getFileName()).toFile().mkdir();
                                 foldersCreatedInTarget.add(sourcePath.getFileName());
                             }
                         }
@@ -634,6 +644,25 @@ public final class SwingCopyJob {
                     setProgress(totalPercentCopied);
                     publish(new SimpleImmutableEntry<>(thisSwingCopyJob.destinationFolder, totalPercentCopied));
                 }
+            }
+        }
+
+        private void retrieveTotalBytes(Path sourcePathname) throws SecurityException, IOException {
+            if (Files.isDirectory(sourcePathname)) {
+                try (DirectoryStream<Path> dirStream = Files.newDirectoryStream(sourcePathname)) {
+                    for (Path path : dirStream) {
+                        if (!isCancelled()) {
+                            // Exclude target folder if it is a subfolder of the source folder
+                            if (Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS) && (!path.equals(thisSwingCopyJob.destinationFolder) && thisSwingCopyJob.recursiveCopy)) {
+                                retrieveTotalBytes(path);
+                            } else if (Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)) {
+                                totalBytes += path.toFile().length();
+                            }
+                        }
+                    }
+                }
+            } else {
+                totalBytes += sourcePathname.toFile().length();
             }
         }
 

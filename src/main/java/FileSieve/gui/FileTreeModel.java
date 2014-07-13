@@ -12,24 +12,24 @@ import javax.swing.tree.TreePath;
 
 
 /** Example of a simple static TreeModel. It contains a
-    (java.io.File) directory structure.
-    (C) 2001 Christian Kaufhold (ch-kaufhold@gmx.de)
+*    (java.io.File) directory structure.
+*    (C) 2001 Christian Kaufhold (ch-kaufhold@gmx.de)
+*    taken from www.chka.de/swing/tree/FileTreeModel.java
+*    fixed to include only directories
 */
 public class FileTreeModel
     implements TreeModel, Serializable{
-
+    
     private static final Object LEAF = new Serializable() { };
- 
     private Map map;
-
     private File root;
-
 
     FileTreeModel(File root){
         this.root = root;
 
-        if (!root.isDirectory())
+        if (!root.isDirectory()){
             map.put(root, LEAF);
+        }
 
         this.map = new HashMap();
     }
@@ -42,7 +42,6 @@ public class FileTreeModel
 
     @Override
     public boolean isLeaf(Object node){
-        //return map.get(node) == LEAF;
         return ((File) node).isFile();
     }
 
@@ -50,8 +49,9 @@ public class FileTreeModel
     public int getChildCount(Object node){
         List children = children(node);
 
-        if (children == null)
+        if (children == null){
             return 0;
+        }
 
         return children.size();
     }

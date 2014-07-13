@@ -11,11 +11,13 @@ import javax.swing.tree.TreeModel;
 import javax.swing.tree.TreeSelectionModel;
 
 /**
- * View for selecting source and target filepaths 
+ * View for selecting source and target filepaths
+ * Uses FileTreeModel to populate the list source folders
+ * Allows to select only folders both as sources and as target
  * @author olgakaraseva
  */
 
-class SelectScreen extends JPanel{
+public class SelectScreen extends JPanel{
 	
         private Controller controller;
         private JTree srcFilepathTree;
@@ -28,7 +30,7 @@ class SelectScreen extends JPanel{
 		
             //Select Source Filepath label
             JLabel srcLabel = new JLabel();
-            srcLabel.setText("Select Folders");
+            srcLabel.setText("Select Folders:");
             srcLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
 		
             //Source Filepath tree
@@ -45,7 +47,7 @@ class SelectScreen extends JPanel{
 		
             //options checkboxes
             subfoldersCb = new JCheckBox("include subfolders");
-            subfoldersCb.setAlignmentX(Component.RIGHT_ALIGNMENT); 
+            subfoldersCb.setAlignmentX(Component.LEFT_ALIGNMENT); 
             subfoldersCb.setSelected(true);
 		
             //Buttons		
@@ -54,17 +56,17 @@ class SelectScreen extends JPanel{
             copyBtn.addActionListener(new ActionListener() {
                 @Override
                 public void actionPerformed(ActionEvent e) {
-                    controller.callCopyJob(srcFilepathTree, subfoldersCb.isSelected());
+                    controller.callCopyJob(srcFilepathTree.getSelectionPaths(), subfoldersCb.isSelected());
                 }
             });
 
 		
             JButton findDupsBtn = new JButton("Find Duplicate Files");
-            findDupsBtn.setAlignmentX(Component.RIGHT_ALIGNMENT);
+            findDupsBtn.setAlignmentX(Component.LEFT_ALIGNMENT);
             findDupsBtn.addActionListener(new ActionListener() {
                 @Override
                 public void actionPerformed(ActionEvent e) {
-                    controller.callDuplJob(srcFilepathTree, subfoldersCb.isSelected());
+                    controller.callDuplJob(srcFilepathTree.getSelectionPaths(), subfoldersCb.isSelected());
                 }
             });
 		
@@ -74,16 +76,16 @@ class SelectScreen extends JPanel{
             srcPane.add(srcLabel);
             srcPane.add(Box.createRigidArea(new Dimension(0,5)));
             srcPane.add(srcScrollPane);
-            srcPane.setBorder(BorderFactory.createEmptyBorder(20,20,20,20));
+            srcPane.add(Box.createRigidArea(new Dimension(0,5)));
+            srcPane.add(subfoldersCb);
+            srcPane.setBorder(BorderFactory.createEmptyBorder(20,20,0,20));
 		
             add(srcPane, BorderLayout.CENTER);
 		
             JPanel buttonPane = new JPanel();
             buttonPane.setLayout(new BoxLayout(buttonPane, BoxLayout.LINE_AXIS));
             buttonPane.setBorder(BorderFactory.createEmptyBorder(0, 20, 20, 20));		
-            buttonPane.add(copyBtn);		
-            buttonPane.add(Box.createHorizontalGlue());
-            buttonPane.add(subfoldersCb);	
+            buttonPane.add(copyBtn);			
             buttonPane.add(findDupsBtn);
 		
             add(buttonPane, BorderLayout.PAGE_END);

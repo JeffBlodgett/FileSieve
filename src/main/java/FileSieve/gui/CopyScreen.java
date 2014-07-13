@@ -9,10 +9,11 @@ import java.awt.event.ActionListener;
 
 /**
  * View for displaying copying progress
+ * Allows to cancel copy job
  * @author olgakaraseva
  */
 
-class CopyScreen extends JPanel{
+public class CopyScreen extends JPanel{
 	
     private Controller controller;
     JLabel targetLabel;
@@ -36,16 +37,13 @@ class CopyScreen extends JPanel{
         targetLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
 		
 		
-	//Total Labels
+	//Total Label
 	progressTxt = new JLabel();
-	progressTxt.setText("Copied x of x files (0Kb of 0Kb)");
 	progressTxt.setAlignmentX(Component.LEFT_ALIGNMENT);
 		
 	//Copy Files list
-	
         copyListModel = new DefaultListModel();
         copyList = new JList(copyListModel);
-        //copyList.setModel(copyListModel);
 		
 	//Scroll pane for copy files list
 	JScrollPane copyScrollPane = new JScrollPane();

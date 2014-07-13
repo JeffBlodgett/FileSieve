@@ -1,19 +1,15 @@
-
 package FileSieve.gui;
 
 
 import java.io.File;
 import java.io.IOException;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import org.junit.After;
 import org.junit.Before;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.*;
 import org.junit.Test;
-import static org.junit.Assert.assertEquals;
 
 /**
+ * Junit test for FileTreeModel class
  * @author olgakaraseva
  */
 public class FileTreeModelTest {
@@ -26,7 +22,6 @@ public class FileTreeModelTest {
     
     @Before
     public void setup() {
-        // create a known state (also known as a baseline)
         testTreeModel = new FileTreeModel(new File(userTempFolder));
         testDir = new File(userTempFolder + "/TestDirectory");
         testSubDir = new File(testDir+"/SubDir");
@@ -36,15 +31,15 @@ public class FileTreeModelTest {
             testSubDir.mkdir();
             testFile.createNewFile();
         } catch (IOException ex) {
-            Logger.getLogger(FileTreeModelTest.class.getName()).log(Level.SEVERE, null, ex);
+            fail("Couldn't create test files");
         }
     }
     
     @After
     public void cleanup() {
-        if(testFile.exists()){
+       if(testFile.exists()){
             testFile.delete();
-        }
+       }
        if(testSubDir.exists()){
             testSubDir.delete();
        }

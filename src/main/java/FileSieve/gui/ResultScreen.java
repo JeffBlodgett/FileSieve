@@ -6,16 +6,22 @@ import java.awt.Dimension;
 import java.awt.Component;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import javax.swing.tree.DefaultMutableTreeNode;
 
 /**
  * View for displaying found duplicate files
+ * Allows to select duplicate files and either copy or delete them
+ * Also allows to export duplicate files report
  * @author olgakaraseva
  */
 
-class ResultScreen extends JPanel{
+public class ResultScreen extends JPanel{
 	
     private Controller controller;
-    private JTree duplicatesList;
+    JTree duplicatesList;
+    CheckTreeManager checkTree;
+    JLabel fileCntLabel;
+    private static final int SELECT_LEVEL = 3; //only 3d level tree nodes can be selected
 	
     ResultScreen(Controller cntrl){
 		
@@ -24,18 +30,19 @@ class ResultScreen extends JPanel{
 		
         //Labels
 	JLabel resultLabel = new JLabel();
-	resultLabel.setText("Results");
+	resultLabel.setText("Found duplicate files:");
 	resultLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
-	JLabel fileCntLabel = new JLabel();
-	fileCntLabel.setText("Searched x files, found x duplicates");
+	fileCntLabel = new JLabel();
 	fileCntLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
-	JLabel selectedFilesLabel = new JLabel();
-	selectedFilesLabel.setText("Selected 0 files, 0 Kb");
-	selectedFilesLabel.setAlignmentX(Component.RIGHT_ALIGNMENT);
+        JLabel instructionsLabel = new JLabel("(click on filename to open the file)");
+        instructionsLabel.setAlignmentX(Component.RIGHT_ALIGNMENT);
 			
 	//Duplicate files list
-	duplicatesList = new JTree();
-		
+        DefaultMutableTreeNode allfiles = new DefaultMutableTreeNode("Duplicate files");
+	duplicatesList = new JTree(allfiles);
+        //turn it into checkTree
+        checkTree = new CheckTreeManager(duplicatesList, SELECT_LEVEL);
+        	
 	//scroll pane for duplicate files list
 	JScrollPane resultScrollPane = new JScrollPane();
 	resultScrollPane.setViewportView(duplicatesList);
@@ -47,7 +54,7 @@ class ResultScreen extends JPanel{
         copyBtn.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                controller.callCopyJob(duplicatesList);
+                controller.callCopyJob(checkTree.getSelectionPaths(), false);
             }
         });
 		
@@ -56,7 +63,7 @@ class ResultScreen extends JPanel{
         deleteBtn.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                //to do
+                controller.callDeleteJob(checkTree.getSelectionPaths());
             }
         });
 		
@@ -83,6 +90,8 @@ class ResultScreen extends JPanel{
 	titlePane.setLayout(new BoxLayout(titlePane, BoxLayout.LINE_AXIS));
 	titlePane.add(resultLabel);
 	titlePane.add(Box.createHorizontalGlue());
+        titlePane.add(instructionsLabel);
+        titlePane.add(Box.createRigidArea(new Dimension(10,0)));
 	titlePane.add(reportBtn);
 	titlePane.add(newSearchBtn);
 	titlePane.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -96,14 +105,11 @@ class ResultScreen extends JPanel{
 	JPanel totalsPane = new JPanel();
 	totalsPane.setLayout(new BoxLayout(totalsPane, BoxLayout.LINE_AXIS));
 	totalsPane.add(fileCntLabel);
-	totalsPane.add(Box.createHorizontalGlue());
-	totalsPane.add(selectedFilesLabel);
 	totalsPane.setAlignmentX(Component.LEFT_ALIGNMENT);
 	resultsPane.add(totalsPane);	
 	resultsPane.setBorder(BorderFactory.createEmptyBorder(20,20,20,20));
         
-	add(resultsPane, BorderLayout.CENTER);
-		
+	add(resultsPane, BorderLayout.CENTER);	
 		
 	JPanel buttonPane = new JPanel();
 	buttonPane.setLayout(new BoxLayout(buttonPane, BoxLayout.LINE_AXIS));

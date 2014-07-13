@@ -1,10 +1,8 @@
 package FileSieve.gui;
 
-
-
 /**
- * Enumeration for 3 app screens and their related info:
- * which button calls the screen and the screen class
+ * Enumeration for 3 screens used by ScreenSwitcher and their related info:
+ * which button calls the screen and the relevant screen class
  * @author olgakaraseva
  */
 public enum ScreenEnum {
@@ -23,4 +21,19 @@ public enum ScreenEnum {
     // Getters
     public String btnText() { return btnText; }
     public Class screenClass() { return screenClass; }
+    
+    /**
+     * Checks whether enum contains a given member
+     * @param aName             button text associated with enum
+     * @return                  true if is member, false otherwise
+     */
+    public static boolean isMember(String aName) {
+       ScreenEnum[] screenEnums = ScreenEnum.values();
+       for (ScreenEnum screen : screenEnums){
+           if (screen.btnText.equals(aName)){
+               return true;
+           }
+       }
+       return false;
+   }
 }

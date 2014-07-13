@@ -8,10 +8,10 @@ import java.awt.Font;
 
 
 /**
- * Main application JFrame with CardLayout JPanel which switches the screens 
+ * Main JFrame with CardLayout JPanel to switch the screens 
  * @author olgakaraseva
  */
-public final class ScreenSwitcher {
+public class ScreenSwitcher {
     
     JPanel screens; //a panel that uses CardLayout
     private Controller controller;
@@ -25,14 +25,13 @@ public final class ScreenSwitcher {
         
         //Set up the content pane.
         addComponentToPane(mainFrame.getContentPane());   
-        mainFrame.setSize(600, 400);
-        mainFrame.pack();
+        mainFrame.setSize(1000, 600);
         
         //Display the window.     
         mainFrame.setVisible(true);
     }
     
-    public void addComponentToPane(Container pane) {
+    private void addComponentToPane(Container pane) {
         
         //set window title
 	JLabel windowLabel = new JLabel();
@@ -55,7 +54,7 @@ public final class ScreenSwitcher {
         pane.add(screens, BorderLayout.CENTER);
         
         //pass screens to controller
-        controller.setScreens(screens, copyScreen);
+        controller.setScreens(screens, copyScreen, resultScreen);
     }
     
 }

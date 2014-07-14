@@ -173,11 +173,14 @@ public class FileDiscovererTest {
                     file2.dat
                 sourceFolder2
                     file3.dat
+                sourceFolder3
+                    (empty)
                 file.dat
          */
 
         try { // Create folder within which test file/folder hierarchy will be built
             Files.createDirectory(fileEnumerationTestFolder);
+            Files.createDirectory(fileEnumerationTestFolder.resolve("sourceFolder3"));
             Files.createDirectory(fileEnumerationTestFolder.resolve("sourceFolder2"));
             Files.createDirectory(fileEnumerationTestFolder.resolve("sourceFolder1"));
         } catch (IOException e) {

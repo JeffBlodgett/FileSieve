@@ -6,69 +6,55 @@ import java.awt.BorderLayout;
 import java.awt.Container;
 import java.awt.Font;
 
+
+/**
+ * Main JFrame with CardLayout JPanel to switch the screens 
+ * @author olgakaraseva
+ */
 public class ScreenSwitcher {
-    JPanel screens; //a panel that uses CardLayout
-    final static String SELECTPANEL = "New Search";
-    final static String RESULTPANEL = "Find Duplicate Files";
-    final static String COPYPANEL = "Copy To";
     
-    /**
-     * Create the GUI and show it.  For thread safety,
-     * this method should be invoked from the
-     * event dispatch thread.
-     */
-    private static void createAndShowGUI() {
+    JPanel screens; //a panel that uses CardLayout
+    private Controller controller;
+    
+    public ScreenSwitcher(Controller cntrl){
+        controller = cntrl;
+        
         //Create and set up the window.
         JFrame mainFrame = new JFrame("File Sieve");
         mainFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         
-        //Create and set up the content pane.
-        ScreenSwitcher screenSwitch = new ScreenSwitcher();
-        screenSwitch.addComponentToPane(mainFrame.getContentPane());
+        //Set up the content pane.
+        addComponentToPane(mainFrame.getContentPane());   
+        mainFrame.setSize(1000, 600);
         
-        mainFrame.setSize(600, 400);
-        //Display the window.
-        mainFrame.pack();
+        //Display the window.     
         mainFrame.setVisible(true);
     }
     
-    public void addComponentToPane(Container pane) {
+    private void addComponentToPane(Container pane) {
         
         //set window title
-		JLabel windowLabel = new JLabel();
-		windowLabel.setFont(new java.awt.Font("Arial", Font.BOLD, 20));
-		windowLabel.setText("File Sieve");
-		windowLabel.setHorizontalAlignment(JLabel.CENTER);
-		pane.add(windowLabel, BorderLayout.NORTH);
+	JLabel windowLabel = new JLabel();
+	windowLabel.setFont(new java.awt.Font("Arial", Font.BOLD, 20));
+	windowLabel.setText("File Sieve");
+	windowLabel.setHorizontalAlignment(JLabel.CENTER);
+	pane.add(windowLabel, BorderLayout.NORTH);
         
-        SelectScreen selectScreen = new SelectScreen(this);
-        ResultScreen resultScreen = new ResultScreen(this);
-        CopyScreen copyScreen = new CopyScreen(this);
+        //set screens
+        SelectScreen selectScreen = new SelectScreen(controller);
+        ResultScreen resultScreen = new ResultScreen(controller);
+        CopyScreen copyScreen = new CopyScreen(controller);
         
         screens = new JPanel(new CardLayout());
-        screens.add(selectScreen, SELECTPANEL);
-        screens.add(resultScreen, RESULTPANEL);
-        screens.add(copyScreen, COPYPANEL);
+
+        screens.add(selectScreen, ScreenEnum.SELECTPANEL.btnText());
+        screens.add(resultScreen, ScreenEnum.RESULTPANEL.btnText());
+        screens.add(copyScreen, ScreenEnum.COPYPANEL.btnText());
         
         pane.add(screens, BorderLayout.CENTER);
-
-    }
-    
-    public void itemStateChanged(String evt) {
-        CardLayout cl = (CardLayout)(screens.getLayout());
-        cl.show(screens, evt);
-    }
-    
-    
-    public static void main(String[] args) {
         
-        //Schedule a job for the event dispatch thread:
-        //creating and showing this application's GUI.
-        javax.swing.SwingUtilities.invokeLater(new Runnable() {
-            @Override
-            public void run() {
-                createAndShowGUI();
-            }
-        });
+        //pass screens to controller
+        controller.setScreens(screens, copyScreen, resultScreen);
     }
+    
 }

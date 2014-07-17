@@ -1,6 +1,7 @@
 package FileSieve.Persistence.Reports;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.List;
 
@@ -21,8 +22,9 @@ public class DiffReportFactory {
      *
      * @param diffResults               the results of a FileDifferentiator object
      * @return                          an instance of a new DiffReport object
+     * @throws java.io.IOException
      */
-    public static DiffReport getDiffReport(List<SimpleImmutableEntry<String, List<File>>> diffResults) {
+    public static DiffReport getDiffReport(List<SimpleImmutableEntry<String, List<File>>> diffResults) throws IOException {
         return new HTMLDiffReport(diffResults);
     }
 

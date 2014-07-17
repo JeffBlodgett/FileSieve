@@ -16,6 +16,9 @@ public class WindowPlacementPreferences {
     private JFrame frame;
     private boolean prefsSet = false;
 
+    private int defaultWidth = 0;
+    private int defaultHeight = 0;
+
     private static final String USER_WINDOW_TOP = "USER_WINDOW_TOP";
     private static final String USER_WINDOW_LEFT = "USER_WINDOW_LEFT";
     private static final String USER_WINDOW_WIDTH = "USER_WINDOW_WIDTH";
@@ -29,6 +32,14 @@ public class WindowPlacementPreferences {
     public WindowPlacementPreferences(JFrame jframe) {
         this();
         frame = jframe;
+    }
+
+    /**
+     * Sets default window dimensions if user settings don't yet exist.
+     */
+    public void setDefaultSize(int width, int height){
+        defaultWidth = width;
+        defaultHeight = height;
     }
 
     /**
@@ -94,7 +105,7 @@ public class WindowPlacementPreferences {
      * @return                          int pixel width
      */
     public int getWindowWidth() {
-        return prefNode.getInt(USER_WINDOW_WIDTH, 0);
+        return prefNode.getInt(USER_WINDOW_WIDTH, defaultWidth);
     }
 
     /**
@@ -112,7 +123,7 @@ public class WindowPlacementPreferences {
      * @return                          int pixel height
      */
     public int getWindowHeight() {
-        return prefNode.getInt(USER_WINDOW_HEIGHT, 0);
+        return prefNode.getInt(USER_WINDOW_HEIGHT, defaultHeight);
     }
 
     /**

@@ -3,13 +3,16 @@ package FileSieve.Persistence.Reports;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import static org.junit.Assert.*;
 
 import java.io.File;
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.junit.Assert.*;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
 
 public class DiffReportTest {
     private DiffReport report;
@@ -35,9 +38,6 @@ public class DiffReportTest {
 
         diffResults = new ArrayList<>();
         diffResults.add(matchEntry);
-
-        report = DiffReportFactory.getDiffReport(diffResults);
-
     }
 
     @After
@@ -47,26 +47,27 @@ public class DiffReportTest {
 
     @Test
     public void testGetReport() throws Exception {
-        String expected = "<html>\n" +
-                " <head>\n" +
-                "  <title>FileSieve Diff Report</title>\n" +
-                " </head>\n" +
-                " <body>\n" +
-                "  <h1>FileSieve Diff Report</h1>\n" +
-                "  <div>\n" +
-                "   <div class=\" fileName\">\n" +
-                "    " + fileName + "\n" +
-                "   </div>\n" +
-                "   <div class=\" match\">\n" +
-                "    " + match1.getPath() + "\n" +
-                "   </div>\n" +
-                "   <div class=\" match\">\n" +
-                "    " + match2.getPath() + "\n" +
-                "   </div>\n" +
-                "  </div>\n" +
-                " </body>\n" +
-                "</html>";
-        assertEquals(expected,report.getReport());
+        report = DiffReportFactory.getDiffReport(diffResults);
+        String results = report.getReport();
+
+        Document diffReport = Jsoup.parse(results);
+        Element diffFileName = diffReport.select(".fileName").first();
+        Element diffMatch1 = diffReport.select(".match").first();
+        Element diffMatch2 = diffReport.select(".match").last();
+
+        String expectedFileName = "<div class=\"fileName\">\n" +
+                "  " + fileName + " \n" +
+                "</div>";
+        String expectedMatch1 =  "<div class=\"match\">\n" +
+                "  " + match1.getPath() + " \n" +
+                "</div>";
+        String expectedMatch2 =  "<div class=\"match\">\n" +
+                "  " + match2.getPath() + " \n" +
+                "</div>";
+
+        assertEquals(expectedFileName,diffFileName.toString());
+        assertEquals(expectedMatch1,diffMatch1.toString());
+        assertEquals(expectedMatch2,diffMatch2.toString());
     }
 
     @Test

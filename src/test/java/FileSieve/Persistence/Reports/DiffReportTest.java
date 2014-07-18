@@ -9,10 +9,13 @@ import java.io.File;
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Scanner;
 
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
+
+
 
 public class DiffReportTest {
     private DiffReport report;
@@ -22,11 +25,13 @@ public class DiffReportTest {
     private String systemFileSeparator;
     private File match1;
     private File match2;
+    private String outputFilePath;
 
     @Before
     public void setup() throws Exception {
         baseDir = System.getProperty("user.dir");
         systemFileSeparator = System.getProperty("file.separator");
+        outputFilePath = baseDir + systemFileSeparator + "test.html";
         fileName = "test.txt";
         match1 = new File(baseDir + systemFileSeparator + "test.txt");
         match2 = new File(baseDir + systemFileSeparator + "test2.txt");
@@ -42,7 +47,12 @@ public class DiffReportTest {
 
     @After
     public void cleanup() throws Exception {
-
+        try {
+            File output = new File(outputFilePath);
+            output.delete();
+        } catch (Exception x) {
+            System.err.println(x);
+        }
     }
 
     @Test
@@ -72,6 +82,17 @@ public class DiffReportTest {
 
     @Test
     public void testSave() throws Exception {
+        report = DiffReportFactory.getDiffReport(diffResults);
+        String results = report.getReport();
 
+        report.save(baseDir + systemFileSeparator + "test.html");
+
+        File outputFile = new File(outputFilePath);
+        assertTrue(outputFile.exists());
+
+
+        String output = new Scanner(outputFile).useDelimiter("\\Z").next();
+
+        assertEquals(results, output);
     }
 }

@@ -284,6 +284,9 @@ public final class SwingCopyJob {
                     lockObject.wait();
                 } catch (InterruptedException e) {
                     // catch spurious interrupts
+
+                    // todo ACK -this looks like a dropped exception (not handled) this almost always a bad, bad practice
+                    // errors will happen and then ignored but the problem might cause issues later and will be very hard to debug.
                 }
             }
         }
@@ -384,6 +387,8 @@ public final class SwingCopyJob {
                     } catch (CancellationException e) {
                         // Background task was cancelled via cancel() method
                     } catch (InterruptedException | ExecutionException e) {
+
+                        // todo - almost duplicated code in the catch and the finally. - not so good - try to avoid.
                         internalWorkerException = e;
                         for (SwingCopyJobListener listener : thisSwingCopyJob.swingCopyJobListeners) {
                             listener.InternalCopyJobException(thisSwingCopyJob, e);
@@ -436,6 +441,8 @@ public final class SwingCopyJob {
                 throw new IOException("IOException while calculating bytes to copy", e);
             }
 
+            // todo when I see code like this I it scream two methods rather than one.
+
             try {
                 for (Path path : thisSwingCopyJob.pathsBeingCopied) {
                     if (!isCancelled()) {
@@ -448,6 +455,10 @@ public final class SwingCopyJob {
                 throw new SecurityException("IOException while reading or writing files/folders in the source or target root", e);
             }
 
+
+            // todo maybe a comment that returning null is OK in this weird return Void situation otherwise methods should really not return
+            // null - it puts the burden of the check on the client which can forget to do it, in which case you have a bug -
+            // in this case, I understand it is OK but a comment would help.
             return null;
         }
 
@@ -460,6 +471,10 @@ public final class SwingCopyJob {
          * @throws IOException          thrown if an IOException occurs during a read or write operation
          */
         private void copyPaths(Path sourcePath, Path targetPath) throws SecurityException, IOException {
+
+            // todo another crazy long method - perhaps the worst case yet. It is pretty hard to follow
+            // consider breaking into smaller methods with doc.
+
             if (!isCancelled()) {
                 if (!sourcePath.equals(thisSwingCopyJob.destinationFolder)) {
 
@@ -646,6 +661,8 @@ public final class SwingCopyJob {
                 }
             }
         }
+
+        // todo I think it is great that you are documenting private methods but be consistent in doing so.
 
         private void retrieveTotalBytes(Path sourcePathname) throws SecurityException, IOException {
             if (Files.isDirectory(sourcePathname)) {

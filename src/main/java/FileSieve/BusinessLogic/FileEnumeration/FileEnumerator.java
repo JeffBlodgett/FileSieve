@@ -6,6 +6,7 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.List;
 import java.util.Map;
 
+// todo - great level of documentation here - nice work
 /**
  * Package-private interface defining methods for enumeration of files and folders within given source paths.
  */

@@ -2,6 +2,8 @@ package FileSieve.BusinessLogic.FileEnumeration;
 
 /**
  * Static factory class for acquiring FileEnumerator objects.
+ *
+ * todo why do you need a factory for this class? Did you have more than one type of  Enumerators?
  */
 public class FileEnumeratorFactory {
 

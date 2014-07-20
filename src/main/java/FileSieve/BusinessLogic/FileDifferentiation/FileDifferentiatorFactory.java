@@ -29,6 +29,7 @@ public class FileDifferentiatorFactory {
      * @param fileHashCalculator    a FileHashCalculator function object used in determining file duplicity
      * @return                      instance of a FileDifferentiator
      */
+    // todo unused method with unused argument
     public static FileDifferentiator getFileDifferentiator(FileHashCalculator fileHashCalculator) {
         return new DuplicateFileFinder();
     }

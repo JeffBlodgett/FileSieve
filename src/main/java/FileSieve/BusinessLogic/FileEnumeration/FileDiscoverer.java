@@ -60,6 +60,9 @@ class FileDiscoverer implements FileEnumerator {
      * @param recursiveSearch   boolean parameter indicating if searches should extend to subfolders
      * @return                  discovered files/folders and their BasicFileAttributes
      * @throws IOException      thrown if an I/O exception occurs
+     *
+     *
+     * todo another long method - I wonder if it could be broken out into smaller methods (maybe not)
      */
     @Override
     public Map<Path, BasicFileAttributes> getPathnames(List<Path> pathsToEnumerate, boolean recursiveSearch) throws IOException {
@@ -98,10 +101,10 @@ class FileDiscoverer implements FileEnumerator {
             }
 
             // Initialize Map... it is time to do so if we got this far
-            pathMap = Collections.synchronizedMap(new LinkedHashMap<Path, BasicFileAttributes>(50));
+            pathMap = Collections.synchronizedMap(new LinkedHashMap<Path, BasicFileAttributes>(50)); //todo avoid magic numbers - use a constant and justify use in comment
 
             for (Path rootPath : rootPathArray) {
-                List<Path> directoryContents = new ArrayList<Path>(25);
+                List<Path> directoryContents = new ArrayList<Path>(25);  //todo same here
 
                 if (Files.isRegularFile(rootPath, LinkOption.NOFOLLOW_LINKS)) {
                     // Add file path to Map
@@ -165,7 +168,10 @@ class FileDiscoverer implements FileEnumerator {
             return pathMap;
 
         /* Rethrow IOException and decrement the recursionLevel counter. This try-catch-finally block maintains
-           a valid state for the recursionLevel counter */
+           a valid state for the recursionLevel counter
+            todo nice work here
+
+            */
         } catch (IOException e) {
             throw e;
         } finally {

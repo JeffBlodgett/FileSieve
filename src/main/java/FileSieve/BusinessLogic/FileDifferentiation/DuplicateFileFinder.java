@@ -11,18 +11,28 @@ import java.util.Map;
 
 /**
  * Implementation of a FileDifferentiator for identifying duplicate files amongst a passed list (Map) of Path objects.
- * This class has package-private access.
+ *
+ *
+ * This class has package-private access.- good that you are paying attention to scope here
+ *
+ *
+ *
  */
 class DuplicateFileFinder implements FileDifferentiator, FileHashCalculator {
 
     private FileHashCalculator fileHashCalculator = null;
 
+    // todo - why this constructor? no doc
     protected DuplicateFileFinder() { }
 
+    // todo this constructor is not used be careful of dead code.
     protected DuplicateFileFinder(FileHashCalculator fileHashCalculator) {
         this.setFileHashCalculator(fileHashCalculator);
     }
 
+
+    // todo this is a long method. Typically keep methods short, doing just one thing - how can this be broken up?
+    // also where is the doc?
     @Override
     public List<SimpleImmutableEntry<String, List<File>>> getDuplicatedFiles(Map<Path, BasicFileAttributes> pathnames) {
         if ((pathnames == null) || (pathnames.size() == 0)) {
@@ -39,12 +49,15 @@ class DuplicateFileFinder implements FileDifferentiator, FileHashCalculator {
         // HashMap to be used internally in accumulating duplicates
         Map<Integer, List<Path>> duplicates = new HashMap<Integer, List<Path>>(pathnames.size() / 2);
 
+        // todo why did you choose to synchronized here rather than at method here?
         synchronized(pathnames) {
             for (Path path : pathnames.keySet()) {
+                // todo what is point of this assignment?
                 Path key = path;
                 BasicFileAttributes value = pathnames.get(path);
                 int hash;
 
+                // todo how can path be null here? (avoid unnecessary checks like this)
                 if ((key != null) && (value != null) && (value.isRegularFile())) {
                     if (fileHashCalculator == null) {
                         hash = calculateHash(key, value);

@@ -8,6 +8,8 @@ import java.nio.file.Path;
  */
 interface FileDeleter {
 
+    //todo short, specific interfaces are great design - good work here.
+
     /**
      * Method for deleting a file or folder
      *

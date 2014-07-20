@@ -29,4 +29,4 @@ public interface FileDifferentiator {
      */
     public void setFileHashCalculator(FileHashCalculator fileHashCalculator);
 
-} // interface FileDifferentiator
+} // interface FileDifferentiator   todo - I find these end of class comments extraneous

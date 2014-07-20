@@ -7,6 +7,7 @@ import java.nio.file.Path;
  */
 public interface SwingCopyJobListener {
 
+    // todo doc?
     public void UpdateCopyJobProgress(SwingCopyJob swingCopyJob, int percentProgressed);
 
     public void UpdatePathnameCopyProgress(SwingCopyJob swingCopyJob, Path pathnameBeingCopied, int percentProgressed);

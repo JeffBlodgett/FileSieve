@@ -43,6 +43,7 @@ abstract class AbstractFileManager<T, L, C> implements FileOpener, FileDeleter, 
      * @throws NullPointerException             thrown if provided pathname is null (RunTimeException)
      * @throws SecurityException                thrown if the SecurityManager.checkDelete method throws a SecurityException (RunTimeException)
      * @throws IOException                      thrown if some other I/O error occurs
+     *  todo throws documentation should also include hints to client code has to how they can handle the problem.
      */
     @Override
     public boolean deletePathname(Path pathname) throws NullPointerException, SecurityException, IOException  {

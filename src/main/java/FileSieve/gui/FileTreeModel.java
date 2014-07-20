@@ -27,11 +27,11 @@ public class FileTreeModel
     FileTreeModel(File root){
         this.root = root;
 
+        this.map = new HashMap();
+        
         if (!root.isDirectory()){
             map.put(root, LEAF);
         }
-
-        this.map = new HashMap();
     }
 
 

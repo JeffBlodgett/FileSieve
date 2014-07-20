@@ -72,7 +72,7 @@ public class ResultScreen extends JPanel{
         reportBtn.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                //to do
+                controller.saveDiffReport();
             }
         });
 		

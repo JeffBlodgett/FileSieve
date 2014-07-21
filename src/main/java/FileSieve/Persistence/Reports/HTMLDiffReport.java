@@ -82,6 +82,7 @@ public class HTMLDiffReport implements DiffReport {
     private Element getDiffTable(Element diffResultTable, SimpleImmutableEntry<String, List<File>> diffResult) {
         Element diffTable = diffResultTable.clone();
         Element diffFileNameContainer = diffTable.select(".fileName").first();
+        Element diffMatchesContainer = diffTable.select(".matches").first();
         Element diffMatchContainer = diffResultTable.select(".match").first().clone();
 
         for (Element element : diffTable.select(".match"))
@@ -92,7 +93,7 @@ public class HTMLDiffReport implements DiffReport {
         for (File f : diffResult.getValue()) {
             Element container = diffMatchContainer.clone();
             container.text(f.getPath());
-            diffTable.appendChild(container);
+            diffMatchesContainer.appendChild(container);
         }
         return diffTable;
     }

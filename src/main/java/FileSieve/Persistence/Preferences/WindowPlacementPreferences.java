@@ -2,7 +2,6 @@ package FileSieve.Persistence.Preferences;
 
 import java.awt.*;
 import javax.swing.JFrame;
-import java.awt.print.Book;
 import java.util.ArrayList;
 import java.util.prefs.BackingStoreException;
 import java.util.prefs.Preferences;
@@ -157,6 +156,7 @@ public class WindowPlacementPreferences {
      */
     public void clear() throws BackingStoreException {
         prefNode.clear();
+        prefsSet = false;
     }
 
     /**

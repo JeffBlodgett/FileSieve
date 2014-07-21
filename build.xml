@@ -8,6 +8,8 @@
     <property name="lib.dir" value="lib" description="project libraries are found here"/>
     <property name="build.dir" value="build"
               description="anything this build script generates goes under this directory"/>
+    <property name="jar.dir" value="${build.dir}${file.separator}jar"
+              description="jar file is saved here"/>
     <property name="classes.dir" value="${build.dir}${file.separator}classes"
               description="Java class files compiled by this build script go here"/>
     <property name="report.dir" value="${build.dir}${file.separator}report"
@@ -16,6 +18,9 @@
               description="directory used by Cobertura code coverage"/>
     <property name="build.report.cobertura.dir" value="${report.dir}${file.separator}cobertura"
               description="report directory used by Cobertura code coverage"/>
+    <property name="main-class" value="FileSieve.FileSieve"
+              description="application main class"/>
+              
 
     <!-- this sets up the classpath for the project. Whenever you add a jar to the lib directory it will be
          automatically added to the classpath -->
@@ -112,7 +117,31 @@
              and the report to be generated -->
         <fail if="test_failure" message="At least one JUnit test failed. Please see report." />
     </target>
+	
+	<!-- package -->
+	<target name="jar" depends="compile">
+        <mkdir dir="${jar.dir}"/>
+        <jar destfile="${jar.dir}${file.separator}${ant.project.name}.jar" basedir="${classes.dir}">
+            <manifest>
+                <attribute name="Main-Class" value="${main-class}"/>
+            </manifest>
+        </jar>
+    </target>
+	
+	<!-- run -->
+    <target name="run" depends="jar">
+        <java fork="true" classname="${main-class}">
+        	<classpath>
+        		<path refid="project.classpath"/>
+        		<path location="${jar.dir}${file.separator}${ant.project.name}.jar"/>
+        	</classpath>
+        </java>
+    </target>
+    
+    <target name="clean-build" depends="clean,jar"/>
 
+    <target name="main" depends="clean,run"/>
+	
     <!-- this is the default target... it does everything -->
     <target name="all" depends="clean, init, compile, instrument, test"
             description="deletes previous work, initializes build directories, compiles project, instruments compiled classes, and runs tests" />

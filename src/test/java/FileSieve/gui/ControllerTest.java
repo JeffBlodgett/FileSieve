@@ -8,6 +8,9 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.AbstractMap;
+import java.util.ArrayList;
+import java.util.List;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.tree.DefaultMutableTreeNode;
@@ -18,6 +21,8 @@ import org.junit.Before;
 import org.junit.Test;
 import static org.junit.Assert.*;
 import org.junit.Assume;
+import org.junit.Rule;
+import org.junit.rules.ExpectedException;
 import static org.mockito.Mockito.*;
 
 /**
@@ -53,6 +58,9 @@ public class ControllerTest {
         assertTrue("able to delete temp folder constructed by setup() method for tests", fileManager.deletePathname(fileTestFolder));
     }
     
+    @Rule
+    public ExpectedException thrown = ExpectedException.none();
+    
     @Test
     public void testChangeScreen(){
         controller.changeScreen(ScreenEnum.COPYPANEL.btnText());
@@ -61,9 +69,24 @@ public class ControllerTest {
         testScreenChangedCorrectly(ScreenEnum.RESULTPANEL);
         controller.changeScreen(ScreenEnum.SELECTPANEL.btnText());
         testScreenChangedCorrectly(ScreenEnum.SELECTPANEL);
+
     }
     
-     private void testScreenChangedCorrectly(ScreenEnum val){
+    @Test
+    public void testChangeScreenNull(){
+        //passing null instead of screen should cause NullPointerException
+        thrown.expect(NullPointerException.class);
+        controller.changeScreen(null);
+    }
+    
+    @Test
+    public void testChangeScreenIllegal(){
+        //passing screen that is not in ScreenEnum should cause IllegalArgumentException
+        thrown.expect(IllegalArgumentException.class);
+        controller.changeScreen("false screen");
+    }
+    
+    private void testScreenChangedCorrectly(ScreenEnum val){
         for (Component comp : ss.screens.getComponents() ) {
             if (comp.isVisible()) {
                assertTrue(val.screenClass().getName()+" changed correctly", 
@@ -251,6 +274,41 @@ public class ControllerTest {
         
     }
     
+    @Test
+    public void testSaveDiffReport(){       
+        //stub duplicates
+        String fileName = "file.dat";
+        File match1 = new File(fileTestFolder + "/sourceFolder1/file.dat");
+        File match2 = new File(fileTestFolder + "/sourceFolder1/folder1/file.dat");
+        List<File> matchList = new ArrayList<>();
+        matchList.add(match1);
+        matchList.add(match2);
+        AbstractMap.SimpleImmutableEntry<String, List<File>> matchEntry
+                  = new AbstractMap.SimpleImmutableEntry<>(fileName, matchList);
+
+        List<AbstractMap.SimpleImmutableEntry<String, List<File>>> duplicates = new ArrayList<>();
+        duplicates.add(matchEntry);
+        
+        //mock the fileChooser
+        JFileChooser fileChooserMock = mock(JFileChooser.class);
+        when(fileChooserMock.showOpenDialog(any(JFrame.class))).thenReturn(0);
+        
+        //setup target
+        File testTarget = new File(fileTestFolder.toString());
+        when(fileChooserMock.getSelectedFile()).thenReturn(testTarget);       
+        controller.fileChooser = fileChooserMock;
+        
+        //check that report is saved      
+        controller.duplicates = duplicates;
+        controller.saveDiffReport();
+        long savedReportSize = new File(testTarget.toString()+"/FileSieveDiffReport.html").length();
+        assertTrue("Saved report should have positive filelength", savedReportSize > 0);
+        
+        //calling method when duplicates are not defined should cause NullPointerException
+        controller.duplicates = null;
+        thrown.expect(NullPointerException.class);
+        controller.saveDiffReport();
+    }
     
     /*
      * Constructs a folder structure with files and subfolders for exercising methods in FileEnumeration package

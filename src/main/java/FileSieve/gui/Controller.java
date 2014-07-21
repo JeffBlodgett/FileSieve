@@ -8,6 +8,9 @@ import FileSieve.BusinessLogic.FileManagement.FileManagerFactory;
 import FileSieve.BusinessLogic.FileManagement.SwingCopyJob;
 import FileSieve.BusinessLogic.FileManagement.SwingCopyJobListener;
 import FileSieve.BusinessLogic.FileManagement.SwingFileManager;
+import FileSieve.Persistence.Preferences.SelectedPaths;
+import FileSieve.Persistence.Reports.DiffReport;
+import FileSieve.Persistence.Reports.DiffReportFactory;
 import java.awt.CardLayout;
 import java.io.File;
 import java.io.IOException;
@@ -44,6 +47,8 @@ public class Controller {
     private FileDifferentiator fileDifferentiator; 
     static SwingFileManager swingFileManager; //protected so CheckTreeManager could access it (or does it create its own?)
     private SwingCopyJob swingCopyJob; 
+    private DiffReport diffReport;
+    List<SimpleImmutableEntry<String, List<File>>> duplicates; //protected so test could mock it
     JFileChooser fileChooser; //protected so test could mock it
     boolean isTest = false; //used to skip some gui methods for test purposes
     
@@ -66,6 +71,7 @@ public class Controller {
         copyScreen = cpyscrn;
         resultScreen = rsltscrn;
     }
+    
     /**
      * Switches to new screen
      * @param screenName                which screen should be displayed
@@ -111,8 +117,15 @@ public class Controller {
         //proceed only if source paths are selected
         if(pathsAreSelected(paths)){
             
+            //load saved target folder and set fileChooser
+            SelectedPaths loadSelectedPaths = new SelectedPaths();
+            if(!loadSelectedPaths.getTargetPathName().equals("")){
+                File savedTarget = new File(loadSelectedPaths.getTargetPathName());
+                fileChooser.setCurrentDirectory(new File(savedTarget.getParent()));
+            }
             //open target filepath selection window
             int retval = fileChooser.showOpenDialog(screens);
+            
             
             //if target filepath is selected
             if (retval == JFileChooser.APPROVE_OPTION) {
@@ -121,10 +134,17 @@ public class Controller {
                 
                 //convert TreePath[] paths to List<Path>
                 List<Path> listOfPaths = new ArrayList<Path>(paths.length);
+                List<String> sourcePathsToSave = new ArrayList<String>(paths.length);
                 for(TreePath path : paths){
                     Path addPath = Paths.get(path.getLastPathComponent().toString());
                     listOfPaths.add(addPath);
+                    sourcePathsToSave.add(path.getLastPathComponent().toString());
                 }
+                
+                //save selected paths
+                SelectedPaths saveSelectedPaths = new SelectedPaths(sourcePathsToSave, target.toString());
+                
+                saveSelectedPaths.save();
 
                 try{
                     //get all files and folders in selected source paths
@@ -239,7 +259,7 @@ public class Controller {
                 long totalBytesSearched = fileEnumerator.getByteCount();
                 
                 //find duplicate files for all selected paths
-                List<SimpleImmutableEntry<String, List<File>>> duplicates = fileDifferentiator.getDuplicatedFiles(discoveredPaths);
+                duplicates = fileDifferentiator.getDuplicatedFiles(discoveredPaths);
 
                 //if duplicates are found go to result screen
                 if(duplicates.size() > 0){
@@ -380,6 +400,33 @@ public class Controller {
         } // paths are selected
         
     } //callDeleteJob
+    
+    
+    protected void saveDiffReport(){ 
+        if(duplicates == null){
+            throw new NullPointerException("No duplicates are found yet");
+        }
+        //open target filepath selection window
+        int retval = fileChooser.showOpenDialog(screens);
+            
+        //if target filepath is selected
+        if (retval == JFileChooser.APPROVE_OPTION) {
+            String targetPath = fileChooser.getSelectedFile().toString();
+            try {
+                diffReport = DiffReportFactory.getDiffReport(duplicates);
+                if(!isTest){
+                   JOptionPane.showMessageDialog(screens, "Report is saved", "Success", JOptionPane.INFORMATION_MESSAGE); 
+                }
+            } catch (IOException ex) {
+                displayAlert("Couldn't create the report");
+            }
+            try {
+                diffReport.save(targetPath+"/FileSieveDiffReport.html");
+            } catch (IOException|NullPointerException ex) {
+                displayAlert("Couldn't save the report");
+            }
+        }
+    }
     
     //helper method to display alerts to user
     private void displayAlert(String msg){

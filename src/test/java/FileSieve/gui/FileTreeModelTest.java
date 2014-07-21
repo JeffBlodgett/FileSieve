@@ -54,6 +54,13 @@ public class FileTreeModelTest {
         assertTrue("root setup correctly", root.equals(userTempFolder));
     }
     
+    @Test 
+    public void testConstructionFile(){
+        FileTreeModel testTreeModelFile = new FileTreeModel(testFile);
+        assertTrue("when passing a file to constructor root should be leaf", 
+                testTreeModelFile.isLeaf(testTreeModelFile.getRoot()));
+    }
+    
     @Test
     public void testIsLeaf() {
         assertTrue("File is leaf", testTreeModel.isLeaf(testFile));
@@ -63,6 +70,7 @@ public class FileTreeModelTest {
     @Test
     public void testGetChildCount(){
         assertEquals("Count directories only", testTreeModel.getChildCount(testDir), 1);
+        assertEquals("Files shouldn't have children", testTreeModel.getChildCount(testFile), 0);
     }
     
     @Test

@@ -65,19 +65,12 @@ public class DiffReportTest {
         Element diffMatch1 = diffReport.select(".match").first();
         Element diffMatch2 = diffReport.select(".match").last();
 
-        String expectedFileName = "<div class=\"fileName\">\n" +
-                "  " + fileName + " \n" +
-                "</div>";
-        String expectedMatch1 =  "<div class=\"match\">\n" +
-                "  " + match1.getPath() + " \n" +
-                "</div>";
-        String expectedMatch2 =  "<div class=\"match\">\n" +
-                "  " + match2.getPath() + " \n" +
-                "</div>";
-
-        assertEquals(expectedFileName,diffFileName.toString());
-        assertEquals(expectedMatch1,diffMatch1.toString());
-        assertEquals(expectedMatch2,diffMatch2.toString());
+        assertEquals("The fileName element's text should match the file name passed in.",
+                fileName,diffFileName.text());
+        assertEquals("The first match element's text should match the path of the first match passed in.",
+                match1.getPath(),diffMatch1.text());
+        assertEquals("The second match element's text should match the path of the second match passed in.",
+                match2.getPath(),diffMatch2.text());
     }
 
     @Test
@@ -90,9 +83,8 @@ public class DiffReportTest {
         File outputFile = new File(outputFilePath);
         assertTrue(outputFile.exists());
 
-
         String output = new Scanner(outputFile).useDelimiter("\\Z").next();
 
-        assertEquals(results, output);
+        assertEquals("Save result should match the string result.", results, output);
     }
 }

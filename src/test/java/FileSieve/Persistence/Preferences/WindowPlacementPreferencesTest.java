@@ -58,39 +58,30 @@ public class WindowPlacementPreferencesTest {
 
     @Test
     public void loadTest() throws Exception {
+        windowPrefs.save();
 
-        if (hadOriginalPrefs) {
-            windowPrefs.load(uiWindow);
+        // set to random
+        uiWindow.setBounds(2, 2, 2, 2);
 
-            Assert.assertEquals(uiWindow.getWidth(), originalWidth);
-            Assert.assertEquals(uiWindow.getHeight(), originalHeight);
-            Assert.assertEquals(uiWindow.getX(), originalLeft);
-            Assert.assertEquals(uiWindow.getY(), originalTop);
-        } else {
-            windowPrefs.save();
+        windowPrefs.load(uiWindow);
 
-            // set to random
-            uiWindow.setBounds(2, 2, 2, 2);
-
-            windowPrefs.load(uiWindow);
-
-            Assert.assertEquals(uiWindow.getWidth(), DEFAULT_WIDTH);
-            Assert.assertEquals(uiWindow.getHeight(), DEFAULT_HEIGHT);
-            Assert.assertEquals(uiWindow.getX(), DEFAULT_LEFT);
-            Assert.assertEquals(uiWindow.getY(), DEFAULT_TOP);
-        }
+        Assert.assertEquals("After load the window width should match the saved setting.",
+                uiWindow.getWidth(), DEFAULT_WIDTH);
+        Assert.assertEquals("After load the window height should match the saved setting.",
+                uiWindow.getHeight(), DEFAULT_HEIGHT);
+        Assert.assertEquals("After load the window location (X axis) should match the saved setting.",
+                uiWindow.getX(), DEFAULT_LEFT);
+        Assert.assertEquals("After load the window location (Y axis) should match the saved setting.",
+                uiWindow.getY(), DEFAULT_TOP);
 
         windowPrefs.clear();
 
         windowPrefs.load(uiWindow);
-
-        Assert.assertFalse(windowPrefs.getPrefsSet());
-        Assert.assertEquals(uiWindow.getWidth(), 0);
-        Assert.assertEquals(uiWindow.getHeight(), 0);
-
         //screen should be centered if no prefs exist.
-        Assert.assertNotEquals(uiWindow.getX(), 0);
-        Assert.assertNotEquals(uiWindow.getY(), 0);
+        Assert.assertNotEquals("Calling load with no preferences set should center the window.",
+                uiWindow.getX(), 0);
+        Assert.assertNotEquals("Calling load with no preferences set should center the window.",
+                uiWindow.getY(), 0);
 
         //test screen centering if window is off-screen.
         Point currentWindowLocation = new Point();
@@ -105,54 +96,65 @@ public class WindowPlacementPreferencesTest {
         windowPrefs.save();
 
         windowPrefs.load(uiWindow);
-        Assert.assertNotEquals(uiWindow.getX(), currentScreen.width - (DEFAULT_WIDTH/2));
-        Assert.assertNotEquals(uiWindow.getY(), currentScreen.height - (DEFAULT_HEIGHT/2));
+        Assert.assertNotEquals("Preferences set with the window off screen should center the window on load.",
+                uiWindow.getX(), currentScreen.width - (DEFAULT_WIDTH/2));
+        Assert.assertNotEquals("Preferences set with the window off screen should center the window on load.",
+                uiWindow.getY(), currentScreen.height - (DEFAULT_HEIGHT/2));
     }
 
     @Test
     public void saveTest() {
+        //these two tests assert that the preference does not already equal the value passed
+        //because save hasn't been called
+        //but if the previously saved setting matches our test values then the assert would fail.
         if (originalWidth != DEFAULT_WIDTH) {
-            Assert.assertNotEquals(windowPrefs.getWindowWidth(), DEFAULT_WIDTH);
+            Assert.assertNotEquals("Width setting should not be saved to preferences until save is called.",
+                    windowPrefs.getWindowWidth(), DEFAULT_WIDTH);
         }
         if (originalHeight != DEFAULT_HEIGHT) {
-            Assert.assertNotEquals(windowPrefs.getWindowHeight(), DEFAULT_HEIGHT);
+            Assert.assertNotEquals("Height setting should not be saved to preferences until save is called.",
+                    windowPrefs.getWindowHeight(), DEFAULT_HEIGHT);
         }
 
         windowPrefs = new WindowPlacementPreferences(uiWindow);
         windowPrefs.save();
 
-        Assert.assertEquals(windowPrefs.getWindowWidth(), DEFAULT_WIDTH);
-        Assert.assertEquals(windowPrefs.getWindowHeight(), DEFAULT_HEIGHT);
+        Assert.assertEquals("Width setting should be returned from preferences after saving.",
+                windowPrefs.getWindowWidth(), DEFAULT_WIDTH);
 
         windowPrefs = new WindowPlacementPreferences(null);
         windowPrefs.save();
 
-        Assert.assertEquals(windowPrefs.getWindowWidth(), DEFAULT_WIDTH);
-        Assert.assertEquals(windowPrefs.getWindowHeight(), DEFAULT_HEIGHT);
+        Assert.assertEquals("Width setting should remain unchanged if null value passed to preferences.",
+                windowPrefs.getWindowWidth(), DEFAULT_WIDTH);
     }
 
     @Test
     public void getWindowWidthTest() {
         windowPrefs.save();
-        Assert.assertEquals(windowPrefs.getWindowWidth(), DEFAULT_WIDTH);
+        Assert.assertEquals("Width setting should be returned from preferences after saving.",
+                windowPrefs.getWindowWidth(), DEFAULT_WIDTH);
     }
 
     @Test
     public void getWindowHeightTest() {
         windowPrefs.save();
-        Assert.assertEquals(windowPrefs.getWindowHeight(), DEFAULT_HEIGHT);
+        Assert.assertEquals("Height setting should be returned from preferences after saving.",
+                windowPrefs.getWindowHeight(), DEFAULT_HEIGHT);
     }
 
     @Test
     public void getWindowTopTest() {
         windowPrefs.save();
-        Assert.assertEquals(windowPrefs.getWindowTop(), DEFAULT_TOP);
+        Assert.assertEquals("Location (y axis) setting should be returned from preferences after saving.",
+                windowPrefs.getWindowTop(), DEFAULT_TOP);
     }
 
     @Test
     public void getWindowLeftTest() {
         windowPrefs.save();
-        Assert.assertEquals(windowPrefs.getWindowLeft(), DEFAULT_LEFT);
+        Assert.assertEquals("Location (x axis) setting should be returned from preferences after saving.",
+                windowPrefs.getWindowLeft(), DEFAULT_LEFT);
     }
 
     @Test
@@ -160,29 +162,32 @@ public class WindowPlacementPreferencesTest {
         windowPrefs.clear();
 
         windowPrefs.setDefaultSize(500, 501);
-        Assert.assertEquals(windowPrefs.getWindowWidth(), 500);
-        Assert.assertEquals(windowPrefs.getWindowHeight(), 501);
+        Assert.assertEquals("Default width should be returned if set and no preferences saved.",
+                windowPrefs.getWindowWidth(), 500);
+        Assert.assertEquals("Default height should be returned if set and no preferences saved.",
+                windowPrefs.getWindowHeight(), 501);
     }
 
     @Test
     public void clearTest() throws Exception {
         windowPrefs.clear();
 
-        Assert.assertFalse(windowPrefs.getPrefsSet());
-        Assert.assertEquals(windowPrefs.getWindowWidth(), 0);
-        Assert.assertEquals(windowPrefs.getWindowHeight(), 0);
-        Assert.assertEquals(windowPrefs.getWindowLeft(), 0);
-        Assert.assertEquals(windowPrefs.getWindowTop(), 0);
+        Assert.assertFalse("getPrefSet should always return false immediately after prefs are clear.",
+                windowPrefs.getPrefsSet());
+        Assert.assertEquals("After clear the window width should be 0.",
+                windowPrefs.getWindowWidth(), 0);
+        Assert.assertEquals("After clear the window height should be 0.",
+                windowPrefs.getWindowHeight(), 0);
+        Assert.assertEquals("After clear the location (x axis) should be 0.",
+                windowPrefs.getWindowLeft(), 0);
+        Assert.assertEquals("After clear the location (y axis) should be 0.",
+                windowPrefs.getWindowTop(), 0);
     }
 
 
     /**
-     * Identifies the display on which the form currently resides and returns the bounds
-     * of the display as a Rectangle, taking into consideration the space occupied by the
-     * taskbar or other screen insets. If the form's location does not reside on any
-     * detected display then the bounds of the closest display is returned. The
-     * coordinates of the returned rectangle (display bounds) are relative to the
-     * overall virtual desktop.
+     * This is a copy of the CalculateUsableDisplayBounds function from WindowPlacementPreferences.
+     * It is used here to get the window bounds to test the repositioning features of the load method.
      *
      * @param currentWindowLocation     Point object with x,y coordinate used to identify display.
      * @return      Rectangle object with bounds of usable space on the identified

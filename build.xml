@@ -60,6 +60,7 @@
             <src path="${src.dir}" />
             <src path="${src-test.dir}" />
             <classpath refid="project.classpath" />
+            <compilerarg value="-Xlint:unchecked" />
         </javac>
     </target>
 
@@ -117,9 +118,8 @@
              and the report to be generated -->
         <fail if="test_failure" message="At least one JUnit test failed. Please see report." />
     </target>
-	
-	<!-- package -->
-	<target name="jar" depends="compile">
+
+    <target name="jar" description="Creates the JAR package" depends="compile">
         <mkdir dir="${jar.dir}"/>
         <jar destfile="${jar.dir}${file.separator}${ant.project.name}.jar" basedir="${classes.dir}">
             <manifest>
@@ -127,23 +127,22 @@
             </manifest>
         </jar>
     </target>
-	
-	<!-- run -->
-    <target name="run" depends="jar">
+
+    <target name="run" description="Lauching the project's JAR package" depends="jar">
         <java fork="true" classname="${main-class}">
-        	<classpath>
-        		<path refid="project.classpath"/>
-        		<path location="${jar.dir}${file.separator}${ant.project.name}.jar"/>
-        	</classpath>
+            <classpath>
+                <path refid="project.classpath"/>
+                <path location="${jar.dir}${file.separator}${ant.project.name}.jar"/>
+            </classpath>
         </java>
     </target>
     
-    <target name="clean-build" depends="clean,jar"/>
+    <target name="clean-build" depends="clean, jar"/>
 
-    <target name="main" depends="clean,run"/>
+    <target name="main" depends="clean, run"/>
 	
     <!-- this is the default target... it does everything -->
     <target name="all" depends="clean, init, compile, instrument, test"
-            description="deletes previous work, initializes build directories, compiles project, instruments compiled classes, and runs tests" />
+     description="deletes previous work, initializes build directories, compiles project, instruments compiled classes, and runs tests" />
 
 </project>

@@ -1,7 +1,5 @@
 package FileSieve.BusinessLogic.FileEnumeration;
 
-import sun.awt.image.ImageWatched;
-
 import java.io.IOException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
@@ -17,20 +15,20 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Class for the discovery of files and folders in one or more search paths. The returns Map with
- * key-value pairs of Path-BasicFileAttributes may be passed to a method(s) of a FileDifferentiator of FileManager
- * object. This class has package-private access.
+ * Concrete implementation of a FileEnumerator. Provides for the discovery of paths (folders and files) within one or
+ * more provided search paths. Principle methods return a Map with key-value pairs of "Path-BasicFileAttributes" which
+ * may be passed to methods of a FileDifferentiator or FileManager instance. This class has package-private access.
  */
 class FileDiscoverer implements FileEnumerator {
 
     private int fileCountFromLastEnumeration = 0;
     private long totalFileByteCountFromLastEnumeration = 0;
 
-    // Used in determining when the above two counters should be reset to zero (when a new file enumeration has begun)
+    // Used in determining when the above two counters should be reset to zero (i.e. when a new file enumeration has begun)
     private int recursionLevel = 0;
 
     /**
-     * Returns a count for the number of files discovered during the most recently completed file enumeration.
+     * Returns a count of the number of files discovered during the most recently completed file discovery.
      * The count excludes folders.
      *
      * @return  count of the number of discovered files from most recent enumeration
@@ -41,7 +39,7 @@ class FileDiscoverer implements FileEnumerator {
     }
 
     /**
-     * Returns the sum of the bytes of the files discovered during the most recently completed file enumeration.
+     * Returns the sum of the bytes of the files discovered during the most recently completed file discovery.
      *
      * @return  sum of the bytes of discovered files from most recent enumeration
      */
@@ -51,16 +49,17 @@ class FileDiscoverer implements FileEnumerator {
     }
 
     /**
-     * Returns a list of discovered files and folders amongst a list of provided pathnames. The returned list is in the
-     * form of a LinkedHashMap with its keys set to discovered file/folder paths and its values set to instances of the
-     * BasicFileAttributes class, containing attributes for each file or folder. The provided list of paths to
-     * enumerate may contain files or folders. File paths in the passed list are added to the returned Map last
-     * whereas folders are given priority as folders as searched. Folders and files within a particular parent folder
-     * are ordered lexicographically.
+     * Returns a list of discovered folders and files amongst a list of provided pathnames, including the paths of
+     * empty folders. The returned Map is a LinkedHashMap, which maintains insertion order while also preventing
+     * duplicate keys. The map's keys are the discovered folder/file paths, while values are set to instances of the
+     * BasicFileAttributes class, containing attributes for each folder or file. The provided list of paths to
+     * enumerate may contain folders or files. File paths in the passed list are, effectively, added to the returned
+     * Map since folders are given order priority in the returned Map. Folders, followed by files, within each
+     * discovered folder are ordered lexicographically.
      *
-     * @param pathsToEnumerate  List<Path> containing pathnames of files and folders to be included in output list
-     * @param recursiveSearch   boolean parameter indicating if searches should extend to subfolders
-     * @return                  discovered files/folders and their BasicFileAttributes
+     * @param pathsToEnumerate  list of paths with the pathnames of folders and specific files to be included in the returned Map
+     * @param recursiveSearch   boolean parameter indicating if path discovery should extend to subfolders
+     * @return                  discovered folders/files and their BasicFileAttributes
      * @throws IOException      thrown if an I/O exception occurs
      */
     @Override
@@ -90,16 +89,14 @@ class FileDiscoverer implements FileEnumerator {
             }
 
             // Sort paths lexicographically, with folders first
-            Path[] rootPathsArray = null;
+            Path[] rootPathsArray;
             if (sourcePaths.size() == 0) {
                 throw new IllegalArgumentException("no path(s) to existing files or folders were provided for enumeration");
             } else {
                 rootPathsArray = sourcePaths.toArray(new Path[sourcePaths.size()]);
                 Arrays.sort(rootPathsArray, FileComparator.getInstance());
                 sourcePaths.clear();
-                for (Path path : rootPathsArray) {
-                    sourcePaths.add(path);
-                }
+                Collections.addAll(sourcePaths, rootPathsArray);
             }
 
             // Remove superfluous paths from sourcePaths list
@@ -112,7 +109,7 @@ class FileDiscoverer implements FileEnumerator {
                         // The path will be discovered by enumeration of the previous source path
                         sourcePaths.remove(i);
                         --i;
-                    } else if (path.startsWith(sourcePaths.get(i - 1)) && (recursiveSearch == true)) {
+                    } else if (path.startsWith(sourcePaths.get(i - 1)) && recursiveSearch) {
                         // The path will be discovered by enumeration of the previous source path
                         sourcePaths.remove(i);
                         --i;
@@ -124,7 +121,7 @@ class FileDiscoverer implements FileEnumerator {
                             sourcePaths.remove(i);
                             --i;
                             break;
-                        } else if (parentFolder.startsWith(sourcePaths.get(j)) && (recursiveSearch == true)) {
+                        } else if (parentFolder.startsWith(sourcePaths.get(j)) && recursiveSearch) {
                             // The path will be discovered by enumeration of a previous source path
                             sourcePaths.remove(i);
                             --i;
@@ -138,7 +135,7 @@ class FileDiscoverer implements FileEnumerator {
             pathMap = Collections.synchronizedMap(new LinkedHashMap<Path, BasicFileAttributes>(50));
 
             for (Path rootPath : sourcePaths) {
-                List<Path> directoryContents = new ArrayList<Path>(25);
+                List<Path> directoryContents = new ArrayList<>(25);
 
                 if (Files.isRegularFile(rootPath, LinkOption.NOFOLLOW_LINKS)) {
                     // Add file path to Map
@@ -186,9 +183,7 @@ class FileDiscoverer implements FileEnumerator {
                                         pathMap.putAll(getPathnames(path, true));
 
                                     /* Rethrow IOException and decrement the recursionLevel counter. This
-                                       try-catch-finally block maintains a valid state for the recursionLevel counter */
-                                    } catch (IOException e) {
-                                        throw e;
+                                       try-finally block maintains a valid state for the recursionLevel counter */
                                     } finally {
                                         --recursionLevel;
                                     }
@@ -210,9 +205,9 @@ class FileDiscoverer implements FileEnumerator {
 
     /**
      * Convenience method (overload) for the getPathnames method. Works the same as the getPathnames(List<Path> , boolean)
-     * version of this method but assumes a recursive search (boolean value of "true" for second parameter).
+     * version of this method but assumes a recursive search (boolean value of "true") for its second parameter.
      *
-     * @param pathsToEnumerate  List<Path> containing pathnames of files and folders to be included in output list
+     * @param pathsToEnumerate  list of paths with the pathnames of folders and specific files to be included in the returned Map
      * @return                  discovered files/folders and their BasicFileAttributes
      * @throws IOException      thrown if an I/O exception occurs
      */
@@ -226,8 +221,9 @@ class FileDiscoverer implements FileEnumerator {
      * version of this method but takes a reference to a single Path object, rather than a List<Path>, as it first
      * parameter.
      *
-     * @param pathToEnumerate   a single Path within which to enumeration files and folders.
-     * @return                  discovered files/folders and their BasicFileAttributes
+     * @param pathToEnumerate   a single Path within which to discover folders/files
+     * @param recursiveSearch   boolean parameter indicating if searches should extend to subfolders
+     * @return                  discovered folders/files and their BasicFileAttributes
      * @throws IOException      thrown if an I/O exception occurs
      */
     @Override
@@ -236,7 +232,7 @@ class FileDiscoverer implements FileEnumerator {
             throw new IllegalArgumentException("no path to existing an file or folder was provided for enumeration");
         }
 
-        List<Path> paths = new ArrayList<Path>(1);
+        List<Path> paths = new ArrayList<>(1);
         paths.add(pathToEnumerate);
 
         return getPathnames(paths, recursiveSearch);
@@ -247,7 +243,7 @@ class FileDiscoverer implements FileEnumerator {
      * version of this method but takes a reference to a single Path object, rather than a List<Path>, as its first
      * parameter and assumes a recursive search (boolean value of "true") for its second parameter.
      *
-     * @param pathToEnumerate   a single Path within which to enumeration files and folders.
+     * @param pathToEnumerate   a single Path within which to discover files and folders.
      * @return                  discovered files/folders and their BasicFileAttributes
      * @throws IOException      thrown if an I/O exception occurs
      */
@@ -256,7 +252,7 @@ class FileDiscoverer implements FileEnumerator {
             throw new IllegalArgumentException("no path to existing an file or folder was provided for enumeration");
         }
 
-        List<Path> paths = new ArrayList<Path>(1);
+        List<Path> paths = new ArrayList<>(1);
         paths.add(pathToEnumerate);
 
         return getPathnames(paths, true);
@@ -264,7 +260,7 @@ class FileDiscoverer implements FileEnumerator {
 
     /**
      * File comparator (function object) for use by instances in sorting an array of Path objects
-     * lexicographically by name, with folder names listed first and file names listed second.
+     * lexicographically by name, with folders listed first and files listed second.
      */
     private static class FileComparator implements Comparator<Path> {
 
@@ -277,7 +273,7 @@ class FileDiscoverer implements FileEnumerator {
         private FileComparator() { }
 
         public int compare(Path path1, Path path2) {
-            int result = 0;
+            int result;
 
             if (Files.isDirectory(path1) && Files.isRegularFile(path2, LinkOption.NOFOLLOW_LINKS)) {
                 result = -1;

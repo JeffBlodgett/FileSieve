@@ -41,3 +41,7 @@ nbbuild.xml
 # code coverage #
 #################
 cobertura.ser
+
+# other #
+#########
+*.html

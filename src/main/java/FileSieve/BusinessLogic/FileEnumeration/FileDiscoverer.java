@@ -1,5 +1,7 @@
 package FileSieve.BusinessLogic.FileEnumeration;
 
+import sun.awt.image.ImageWatched;
+
 import java.io.IOException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
@@ -63,7 +65,7 @@ class FileDiscoverer implements FileEnumerator {
      */
     @Override
     public Map<Path, BasicFileAttributes> getPathnames(List<Path> pathsToEnumerate, boolean recursiveSearch) throws IOException {
-        // Reset file and byte counts to zero if this is the start of a new enumeration
+        // Set file and byte counts to zero if this is the start of a new enumeration
         if (recursionLevel == 0) {
             fileCountFromLastEnumeration = 0;
             totalFileByteCountFromLastEnumeration = 0;
@@ -80,27 +82,62 @@ class FileDiscoverer implements FileEnumerator {
             Map<Path, BasicFileAttributes> pathMap;
 
             // Test to ensure Path objects abstract existing files or folders
-            List<Path> sourcePaths = new ArrayList<Path>(pathsToEnumerate.size());
+            List<Path> sourcePaths = new ArrayList<>(pathsToEnumerate.size());
             for (Path path : pathsToEnumerate) {
-                if ((path != null) && (Files.exists(path, LinkOption.NOFOLLOW_LINKS))) {
+                if ((path != null) && (! sourcePaths.contains(path)) && (Files.exists(path, LinkOption.NOFOLLOW_LINKS))) {
                     sourcePaths.add(path);
                 }
             }
 
             // Sort paths lexicographically, with folders first
-            Path[] rootPathArray = null;
+            Path[] rootPathsArray = null;
             if (sourcePaths.size() == 0) {
                 throw new IllegalArgumentException("no path(s) to existing files or folders were provided for enumeration");
             } else {
-                rootPathArray = sourcePaths.toArray(new Path[sourcePaths.size()]);
-                Arrays.sort(rootPathArray, FileComparator.getInstance());
+                rootPathsArray = sourcePaths.toArray(new Path[sourcePaths.size()]);
+                Arrays.sort(rootPathsArray, FileComparator.getInstance());
                 sourcePaths.clear();
+                for (Path path : rootPathsArray) {
+                    sourcePaths.add(path);
+                }
             }
 
-            // Initialize Map... it is time to do so if we got this far
+            // Remove superfluous paths from sourcePaths list
+            for (int i = 1; i < sourcePaths.size(); ++i) {
+                Path path = sourcePaths.get(i);
+                Path parentFolder = path.getParent();
+
+                if (Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS)) {
+                    if (Files.isSameFile(parentFolder, sourcePaths.get(i - 1))) {
+                        // The path will be discovered by enumeration of the previous source path
+                        sourcePaths.remove(i);
+                        --i;
+                    } else if (path.startsWith(sourcePaths.get(i - 1)) && (recursiveSearch == true)) {
+                        // The path will be discovered by enumeration of the previous source path
+                        sourcePaths.remove(i);
+                        --i;
+                    }
+                } else {
+                    for (int j = 0; j < sourcePaths.size(); ++j) {
+                        if (Files.isSameFile(parentFolder, sourcePaths.get(j))) {
+                            // The path will be discovered by enumeration of a previous source path
+                            sourcePaths.remove(i);
+                            --i;
+                            break;
+                        } else if (parentFolder.startsWith(sourcePaths.get(j)) && (recursiveSearch == true)) {
+                            // The path will be discovered by enumeration of a previous source path
+                            sourcePaths.remove(i);
+                            --i;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // Initialize map if we got this far
             pathMap = Collections.synchronizedMap(new LinkedHashMap<Path, BasicFileAttributes>(50));
 
-            for (Path rootPath : rootPathArray) {
+            for (Path rootPath : sourcePaths) {
                 List<Path> directoryContents = new ArrayList<Path>(25);
 
                 if (Files.isRegularFile(rootPath, LinkOption.NOFOLLOW_LINKS)) {
@@ -164,10 +201,8 @@ class FileDiscoverer implements FileEnumerator {
 
             return pathMap;
 
-        /* Rethrow IOException and decrement the recursionLevel counter. This try-catch-finally block maintains
-           a valid state for the recursionLevel counter */
-        } catch (IOException e) {
-            throw e;
+        /* Decrement the recursionLevel counter irregardless of the occurrence of an exception. This try-finally
+           block maintains a valid state for the recursionLevel counter. */
         } finally {
             --recursionLevel;
         }

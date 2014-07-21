@@ -12,7 +12,7 @@ import java.util.Map;
 public interface FileEnumerator {
 
     /**
-     * Returns a count for the number of files discovered during the most recently completed file enumeration.
+     * Returns a count of the number of files discovered during the most recently completed file enumeration.
      * The count excludes folders.
      *
      * @return  count of the number of discovered files from most recent enumeration

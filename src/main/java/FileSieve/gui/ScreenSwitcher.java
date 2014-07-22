@@ -6,6 +6,9 @@ import java.awt.CardLayout;
 import java.awt.BorderLayout;
 import java.awt.Container;
 import java.awt.Font;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import java.util.prefs.BackingStoreException;
 
 
 /**
@@ -19,6 +22,7 @@ public class ScreenSwitcher {
     private WindowPlacementPreferences windowPrefs; //keeps window placement preferences
     private final static int DEFAULT_WIDTH = 1000;
     private final static int DEFAULT_HEIGHT = 600;
+    private final static int MINIMAL_WIDTH = 300; //main frame can't be smaller than that
     
     public ScreenSwitcher(Controller cntrl){
         controller = cntrl;
@@ -36,7 +40,19 @@ public class ScreenSwitcher {
         } 
         //place the window according to saved preferences or defaults
         windowPrefs.load(mainFrame);
-         
+        
+        //ensure that frame width is not too small
+        if(mainFrame.getWidth() <= MINIMAL_WIDTH){
+            try {
+                windowPrefs.clear();
+                windowPrefs.setDefaultSize(DEFAULT_WIDTH, DEFAULT_HEIGHT);
+                windowPrefs.load(mainFrame);
+            } catch (BackingStoreException ex) {
+                //set the frame size
+                mainFrame.setSize(DEFAULT_WIDTH, DEFAULT_HEIGHT);
+            }
+            
+        }
         
         //on window close save window placement preferences
         mainFrame.setDefaultCloseOperation(javax.swing.WindowConstants.DO_NOTHING_ON_CLOSE);
@@ -57,13 +73,6 @@ public class ScreenSwitcher {
     }
     
     private void addComponentToPane(Container pane) {
-        
-        //set window title
-	JLabel windowLabel = new JLabel();
-	windowLabel.setFont(new java.awt.Font("Arial", Font.BOLD, 20));
-	windowLabel.setText("File Sieve");
-	windowLabel.setHorizontalAlignment(JLabel.CENTER);
-	pane.add(windowLabel, BorderLayout.NORTH);
         
         //set screens
         SelectScreen selectScreen = new SelectScreen(controller);

@@ -133,8 +133,8 @@ public class Controller {
                 Path targetPath = target.toPath();
                 
                 //convert TreePath[] paths to List<Path>
-                List<Path> listOfPaths = new ArrayList<Path>(paths.length);
-                List<String> sourcePathsToSave = new ArrayList<String>(paths.length);
+                List<Path> listOfPaths = new ArrayList<>(paths.length);
+                List<String> sourcePathsToSave = new ArrayList<>(paths.length);
                 for(TreePath path : paths){
                     Path addPath = Paths.get(path.getLastPathComponent().toString());
                     listOfPaths.add(addPath);
@@ -153,7 +153,7 @@ public class Controller {
                     long totalBytes = fileEnumerator.getByteCount();
                     
                     //convert a Map to a Set
-                    Set<Path> pathsToCopy = new LinkedHashSet<Path>(discoveredPaths.keySet());
+                    Set<Path> pathsToCopy = new LinkedHashSet<>(discoveredPaths.keySet());
                     
                     changeScreen(ScreenEnum.COPYPANEL.btnText());
                     setupCopyScreen(target.toString(), totalFiles, totalBytes);
@@ -246,7 +246,7 @@ public class Controller {
         if(pathsAreSelected(paths)){
             
             //convert TreePath[] paths to List<Path>
-            List<Path> listOfPaths = new ArrayList<Path>(paths.length);
+            List<Path> listOfPaths = new ArrayList<>(paths.length);
             for(TreePath path : paths){
                 Path addPath = Paths.get(path.getLastPathComponent().toString());
                 listOfPaths.add(addPath);
@@ -414,14 +414,14 @@ public class Controller {
             String targetPath = fileChooser.getSelectedFile().toString();
             try {
                 diffReport = DiffReportFactory.getDiffReport(duplicates);
-                if(!isTest){
-                   JOptionPane.showMessageDialog(screens, "Report is saved", "Success", JOptionPane.INFORMATION_MESSAGE); 
-                }
             } catch (IOException ex) {
                 displayAlert("Couldn't create the report");
             }
             try {
-                diffReport.save(targetPath+"/FileSieveDiffReport.html");
+                diffReport.save(targetPath+System.getProperty("file.separator")+"FileSieveDiffReport.html");
+                if(!isTest){
+                   JOptionPane.showMessageDialog(screens, "Report is saved", "Success", JOptionPane.INFORMATION_MESSAGE); 
+                }
             } catch (IOException|NullPointerException ex) {
                 displayAlert("Couldn't save the report");
             }
@@ -430,7 +430,7 @@ public class Controller {
     
     //helper method to display alerts to user
     private void displayAlert(String msg){
-        //maybe add condition if not test?
+        //don't show alert while testing
         if(!isTest){
             JOptionPane.showMessageDialog(screens, msg, "Can't proceed", JOptionPane.WARNING_MESSAGE);
         }

@@ -13,8 +13,10 @@ import java.awt.event.ActionListener;
  * @author olgakaraseva
  */
 
+// todo - is this the best name fo the class? What is the copy screen?
 public class CopyScreen extends JPanel{
-	
+
+    // todo why aren't these all private? Why package scope? - non private (non final) members are generally a really bad idea.
     private Controller controller;
     JLabel targetLabel;
     JLabel progressTxt;
@@ -23,7 +25,8 @@ public class CopyScreen extends JPanel{
     JProgressBar totalProgressBar;
     JButton cancelBtn;
     JButton newSearchBtn;
-	
+
+    //todo yow! this is a long method - consider breaking it up for readability
     CopyScreen(Controller cntrl){
 
 	controller = cntrl;

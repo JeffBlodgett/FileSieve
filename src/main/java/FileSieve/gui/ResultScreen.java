@@ -1,12 +1,19 @@
 package FileSieve.gui;
 
-import javax.swing.*;
+import javax.swing.BorderFactory;
+import javax.swing.Box;
+import javax.swing.BoxLayout;
+import javax.swing.JButton;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JTree;
+import javax.swing.tree.DefaultMutableTreeNode;
 import java.awt.BorderLayout;
-import java.awt.Dimension;
 import java.awt.Component;
+import java.awt.Dimension;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import javax.swing.tree.DefaultMutableTreeNode;
 
 /**
  * View for displaying found duplicate files
@@ -16,7 +23,7 @@ import javax.swing.tree.DefaultMutableTreeNode;
  */
 
 public class ResultScreen extends JPanel{
-	
+	 // todo same comments as CopyScreen - why some private -also method too long
     private Controller controller;
     JTree duplicatesList;
     CheckTreeManager checkTree;

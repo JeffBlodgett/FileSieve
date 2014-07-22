@@ -2,23 +2,25 @@ package FileSieve.gui;
 
 import FileSieve.BusinessLogic.FileManagement.FileManagerFactory;
 import FileSieve.BusinessLogic.FileManagement.SwingFileManager;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
-import java.io.IOException;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+
 import javax.swing.JCheckBox;
 import javax.swing.JOptionPane;
 import javax.swing.JTree;
 import javax.swing.tree.DefaultTreeSelectionModel;
 import javax.swing.tree.TreePath;
 import javax.swing.tree.TreeSelectionModel;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.io.IOException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
 /**
- * Turns a JTree into a checkbox tree
+ * Turns a JTree into a checkbox tree   todo - nice there is even a design pattern here - do you you know the name?
+ *
  * Code taken from http://www.jroller.com/santhosh/entry/jtree_with_checkboxes
  * Modified by olgakaraseva to adjust to current app
- * @author Santhosh Kumar T - santhosh@in.fiorano.com
+ * @author Santhosh Kumar T - santhosh@in.fiorano.com    todo - good that you reused but also provided credit
  */
 public class CheckTreeManager extends MouseAdapter { 
     private DefaultTreeSelectionModel selectionModel;
@@ -27,7 +29,8 @@ public class CheckTreeManager extends MouseAdapter {
     int hotspot = new JCheckBox().getPreferredSize().width; //protected so test could access it
     private SwingFileManager swingFileManager; //used to open files
     boolean isTest = false; //used to skip some gui methods for test purposes
- 
+
+    // todo javadoc
     public CheckTreeManager(JTree tree, int selectLevel){ 
         this.tree = tree;
         this.selectLevel = selectLevel;
@@ -74,7 +77,7 @@ public class CheckTreeManager extends MouseAdapter {
                             swingFileManager.openPathname(filePath);
                         }
                     } catch (IOException ioe) {
-                        if(!isTest){
+                        if(!isTest){   // todo - be careful here you almost always don't want test specific code in production code - because it is not how the client will use the code so you are testing the code ina way that it won't be used.
                             JOptionPane.showMessageDialog(null, "Cannot open file. "+ioe.getMessage(), 
                                     "Can't proceed", JOptionPane.WARNING_MESSAGE);
                         }

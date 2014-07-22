@@ -11,6 +11,13 @@ import FileSieve.BusinessLogic.FileManagement.SwingFileManager;
 import FileSieve.Persistence.Preferences.SelectedPaths;
 import FileSieve.Persistence.Reports.DiffReport;
 import FileSieve.Persistence.Reports.DiffReportFactory;
+
+import javax.swing.JFileChooser;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.tree.DefaultMutableTreeNode;
+import javax.swing.tree.DefaultTreeModel;
+import javax.swing.tree.TreePath;
 import java.awt.CardLayout;
 import java.io.File;
 import java.io.IOException;
@@ -18,18 +25,12 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.AbstractMap;
-import java.util.ArrayList;
-import java.util.List;
-import javax.swing.JFileChooser;
-import javax.swing.JOptionPane;
-import javax.swing.JPanel;
-import javax.swing.tree.TreePath;
 import java.util.AbstractMap.SimpleImmutableEntry;
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import javax.swing.tree.DefaultMutableTreeNode;
-import javax.swing.tree.DefaultTreeModel;
 
 /**
  * Connects the view to model
@@ -66,6 +67,7 @@ public class Controller {
      * @param cpyscrn   CopyScreen instance as set by ScreenSwitcher
      * @param rsltscrn  ResultScreen instance as set by ScreenSwitcher
      */
+    //todo whole word variable names make the code much more readable (and are also called out in the Java Coding standards  http://www.oracle.com/technetwork/java/codeconvtoc-136057.html)
     protected void setScreens(JPanel scrn, CopyScreen cpyscrn, ResultScreen rsltscrn){
         screens = scrn;
         copyScreen = cpyscrn;
@@ -283,6 +285,9 @@ public class Controller {
      * @param totalBytesSearched        how many bytes there are in files that were compared
      * @throws NullPointerException     if result screen is not initialized
      */
+
+    // todo - when possible longer methods should be broken up into smaller discrete methods. - not always possible but to
+    // IDEA's refactor->extract method functionality can help here.
     private void setupResultScreen(List<AbstractMap.SimpleImmutableEntry<String, List<File>>> foundDuplicates,
                                     int totalFilesSearched, long totalBytesSearched){
         
@@ -401,7 +406,9 @@ public class Controller {
         
     } //callDeleteJob
     
-    
+    // todo prefer consistent JavaDoc of methods. if you javadoc some protected method do them all
+    // I personally javadoc all methods even simple private ones for consistency which I find make the code more
+    // readable and more readable means less buggy and more maintainable.
     protected void saveDiffReport(){ 
         if(duplicates == null){
             throw new NullPointerException("No duplicates are found yet");

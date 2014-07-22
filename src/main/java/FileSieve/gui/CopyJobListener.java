@@ -2,10 +2,11 @@ package FileSieve.gui;
 
 import FileSieve.BusinessLogic.FileManagement.SwingCopyJob;
 import FileSieve.BusinessLogic.FileManagement.SwingCopyJobListener;
+
+import javax.swing.JOptionPane;
 import java.io.File;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import javax.swing.JOptionPane;
 
 /**
  * Listens to the progress of copying operation and updates the GUI
@@ -14,6 +15,10 @@ import javax.swing.JOptionPane;
 public class CopyJobListener implements SwingCopyJobListener {
     
     private static final int ONE_HUNDRED_PERCENT = 100;
+    // todo good that you documented them but the java standard way is to do with javadoc like this:
+    /** javadoc member variable example */
+    private boolean isJavaDocExample;
+
     private int totalFiles;                 //total number of files to be copied
     private long totalBytes;                //total number of bytes to be copied
     private int filesDone;                  //track how many files are already copied
@@ -22,7 +27,11 @@ public class CopyJobListener implements SwingCopyJobListener {
     private CopyScreen copyScreen;
     private ArrayList<File> copiedFiles;    //used to keep track of which files are added to
                                             //display and which are just updating percentage
-    
+
+    //todo - I like that you did not initialize these values in their declarations.
+    // doing it in one place in the constructor, as you have done, I think is better
+    // because it means the reader doesn't have jump around as much when reading the code.
+
     /**
      * @param cpscrn     Copy Screen instance
      * @param totFiles   total Files to be copied
@@ -46,6 +55,9 @@ public class CopyJobListener implements SwingCopyJobListener {
      */ 
     @Override
     public void UpdateCopyJobProgress(SwingCopyJob swingCopyJob, int percentProgressed) {
+
+        // todo - this is a minor point but // are used fro one line comments while /* comment  are used for multi line comments */
+
         //since there is only a single instance of swingCopyJob there's no need
         //to pass it to controller to stop the copy job - controller keeps track of its
         //own swingCopyJob instance

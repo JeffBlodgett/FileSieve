@@ -1,9 +1,5 @@
 package FileSieve.gui;
 
-import java.awt.Component;
-import java.awt.Dimension;
-import java.awt.Font;
-import java.io.File;
 import javax.swing.BoxLayout;
 import javax.swing.JCheckBox;
 import javax.swing.JLabel;
@@ -12,6 +8,10 @@ import javax.swing.JTree;
 import javax.swing.tree.DefaultTreeSelectionModel;
 import javax.swing.tree.TreeCellRenderer;
 import javax.swing.tree.TreePath;
+import java.awt.Component;
+import java.awt.Dimension;
+import java.awt.Font;
+import java.io.File;
 
 /**
  * Adds checkboxes for JTree leaves
@@ -23,7 +23,8 @@ public class CheckTreeCellRenderer extends JPanel implements TreeCellRenderer{
     private DefaultTreeSelectionModel selectionModel; 
     private TreeCellRenderer delegate; 
     private JCheckBox checkBox = new JCheckBox(); 
- 
+
+    //todo don't forget the javadoc
     public CheckTreeCellRenderer(TreeCellRenderer delegate, DefaultTreeSelectionModel selectionModel){ 
         this.delegate = delegate; 
         this.selectionModel = selectionModel; 
@@ -46,7 +47,10 @@ public class CheckTreeCellRenderer extends JPanel implements TreeCellRenderer{
     @Override
     public Component getTreeCellRendererComponent(JTree tree, Object value, boolean selected, 
                      boolean expanded, boolean leaf, int row, boolean hasFocus){ 
-        
+
+        //todo here's a best pratice: use IDEA's Analyze->Inspect Code  functionality to find
+        // issues like this - unused variables - the inspect will tell you a lot more and a lot of
+        // the comments it generates are useful (while some aren't always).
         Component renderer = delegate.getTreeCellRendererComponent(tree, value, selected, expanded, leaf, row, hasFocus); 
         
         //take care of the checkbox state based on whether the path is selcted

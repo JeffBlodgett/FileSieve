@@ -58,6 +58,7 @@ public class SelectedPaths {
      * @param pathNames                 A list of strings representing the selected reference paths.
      */
     private void setReferencePathNames(List<String> pathNames) {
+      // todo whole variables are easier read
         StringBuilder sb = new StringBuilder();
 
         for (String s : pathNames) {

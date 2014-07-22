@@ -19,7 +19,8 @@ public class ScreenSwitcher {
     private WindowPlacementPreferences windowPrefs; //keeps window placement preferences
     private final static int DEFAULT_WIDTH = 1000;
     private final static int DEFAULT_HEIGHT = 600;
-    
+
+    // todo javadoc
     public ScreenSwitcher(Controller cntrl){
         controller = cntrl;
         
@@ -55,7 +56,8 @@ public class ScreenSwitcher {
         mainFrame.setVisible(true);
         
     }
-    
+
+    // todo javadoc
     private void addComponentToPane(Container pane) {
         
         //set window title

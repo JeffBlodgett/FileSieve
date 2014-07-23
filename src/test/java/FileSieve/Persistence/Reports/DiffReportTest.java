@@ -20,6 +20,7 @@ import org.jsoup.nodes.Element;
 public class DiffReportTest {
     private DiffReport report;
     private List<AbstractMap.SimpleImmutableEntry<String, List<File>>> diffResults;
+    private List<String> deletedPaths;
     private String fileName;
     private String baseDir;
     private String systemFileSeparator;
@@ -43,6 +44,9 @@ public class DiffReportTest {
 
         diffResults = new ArrayList<>();
         diffResults.add(matchEntry);
+
+        deletedPaths = new ArrayList<>();
+        deletedPaths.add(match2.getPath());
     }
 
     @After
@@ -75,7 +79,7 @@ public class DiffReportTest {
 
     @Test
     public void testSave() throws Exception {
-        report = DiffReportFactory.getDiffReport(diffResults);
+        report = DiffReportFactory.getDiffReport(diffResults, deletedPaths);
         String results = report.getReport();
 
         report.save(baseDir + systemFileSeparator + "test.html");

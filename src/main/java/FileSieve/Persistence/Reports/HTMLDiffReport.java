@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.AbstractMap.SimpleImmutableEntry;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.jsoup.Jsoup;
@@ -17,15 +18,31 @@ public class HTMLDiffReport implements DiffReport {
     private static String TEMPLATE_DIR = "templates";
     private static String TEMPLATE_NAME = "DiffReport.html";
     private List<SimpleImmutableEntry<String, List<File>>> fileDiffResults;
+    private List<String> deletedFiles;
     private Document reportDoc;
     private String baseDir;
     private String systemFileSeparator;
 
-    public HTMLDiffReport(List<SimpleImmutableEntry<String, List<File>>> diffResults) throws IOException {
-        fileDiffResults = diffResults;
-
+    private HTMLDiffReport() {
         baseDir = System.getProperty("user.dir");
         systemFileSeparator = System.getProperty("file.separator");
+    }
+
+    public HTMLDiffReport(List<SimpleImmutableEntry<String, List<File>>> diffResults) throws IOException {
+        this();
+
+        fileDiffResults = diffResults;
+        deletedFiles = new ArrayList<>();
+
+        buildReport();
+    }
+
+    public HTMLDiffReport(List<SimpleImmutableEntry<String, List<File>>> diffResults,
+                          List<String> deletedPaths) throws IOException {
+        this();
+
+        fileDiffResults = diffResults;
+        deletedFiles = deletedPaths;
 
         buildReport();
     }
@@ -92,6 +109,11 @@ public class HTMLDiffReport implements DiffReport {
 
         for (File f : diffResult.getValue()) {
             Element container = diffMatchContainer.clone();
+
+            if (deletedFiles.contains(f.getPath())) {
+                container.addClass("deleted");
+            }
+
             container.text(f.getPath());
             diffMatchesContainer.appendChild(container);
         }

@@ -88,7 +88,7 @@ public class FileDiscovererTest {
     private void commonTestCode(Map<Path, BasicFileAttributes> discoveredPaths) {
         int index = 0;
 
-        for (Path path : discoveredPaths.keySet()){
+        for (Path path : discoveredPaths.keySet()) {
             ++index;
 
             switch (index) {

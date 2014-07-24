@@ -258,6 +258,9 @@ public class ControllerTest {
                 "sourceFolder1"+System.getProperty("file.separator")+"folder1").toString());
         int filesInFolder = deletedFromFolder.listFiles().length;
         
+        //initialize deletePaths
+        controller.deletedPaths = new ArrayList<>(0);
+        
         controller.callDeleteJob(paths);
         assertEquals("the tree should have 0 elements under filename now", 0, treeModel.getChildCount(filename));
         assertEquals("no paths should be selected", 0, 
@@ -301,16 +304,29 @@ public class ControllerTest {
         when(fileChooserMock.showOpenDialog(any(JFrame.class))).thenReturn(0);
         
         //setup target
-        File testTarget = new File(fileTestFolder.toString());
+        File testTarget = new File(fileTestFolder.toString()+
+                System.getProperty("file.separator")+"FileSieveDiffReport.html");
         when(fileChooserMock.getSelectedFile()).thenReturn(testTarget);       
-        controller.fileChooser = fileChooserMock;
+        controller.saveFileChooser = fileChooserMock;
         
         //check that report is saved      
         controller.duplicates = duplicates;
         controller.saveDiffReport();
-        long savedReportSize = new File(testTarget.toString()+
-                System.getProperty("file.separator")+"FileSieveDiffReport.html").length();
+        long savedReportSize = testTarget.length();
         assertTrue("Saved report should have positive filelength", savedReportSize > 0);
+        
+        //check that report with deleted files differs from report with no deleted files
+        File testTargetWithDel = new File(fileTestFolder.toString()+
+                System.getProperty("file.separator")+"FileSieveDiffReportDel.html");
+        when(fileChooserMock.getSelectedFile()).thenReturn(testTargetWithDel);       
+        controller.saveFileChooser = fileChooserMock;
+
+        controller.deletedPaths = new ArrayList<>(1);
+        controller.deletedPaths.add(match2.toString());
+        controller.saveDiffReport();
+        long savedReportSize2 = testTargetWithDel.length();
+        assertTrue("Report with deleted files should be longer then the report without them", 
+                savedReportSize < savedReportSize2);
         
         //calling method when duplicates are not defined should cause NullPointerException
         controller.duplicates = null;

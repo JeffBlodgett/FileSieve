@@ -68,7 +68,7 @@ public class CopyJobListener implements SwingCopyJobListener {
         
         //show progress only for files, not for directories
         if(fileBeingCopied.isFile()){
-            String fileProgress = "Copying "+pathnameBeingCopied.toString()+" ("+percentProgressed+"%)";
+            String fileProgress = "Creating "+pathnameBeingCopied.toString()+" ("+percentProgressed+"%)";
             int fileIndex = copiedFiles.indexOf((Object) fileBeingCopied);
 
             //check if file is already in the list
@@ -84,6 +84,8 @@ public class CopyJobListener implements SwingCopyJobListener {
             } else {
                 copiedFiles.add(fileBeingCopied);
                 copyScreen.copyListModel.addElement(fileProgress);
+                //scroll to the bottom of the list as the items are added
+                copyScreen.copyList.ensureIndexIsVisible(copiedFiles.size()-1);
             }
         }
     }

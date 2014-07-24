@@ -30,7 +30,8 @@ public class CheckTreeManagerTest {
         for(int filename = 0; filename < 3; filename++){
             DefaultMutableTreeNode dupFilename = new DefaultMutableTreeNode("File "+filename);
             for(int duplicate = 0; duplicate < 3; duplicate++){
-                DefaultMutableTreeNode dupFile = new DefaultMutableTreeNode("Folder "+duplicate+"/File "+filename);
+                DefaultMutableTreeNode dupFile = new DefaultMutableTreeNode(
+                        "Folder "+duplicate+System.getProperty("file.separator")+"File "+filename);
                 dupFilename.add(dupFile);
             }
             allfiles.add(dupFilename);
@@ -98,7 +99,7 @@ public class CheckTreeManagerTest {
         assertEquals("node was selected on checkbox click", 1, selectedPaths.length);
         for(TreePath path : selectedPaths){
             assertTrue("correct node was selected and no other nodes were selected", 
-                    path.getLastPathComponent().toString().equals("Folder 0/File 0"));
+                    path.getLastPathComponent().toString().equals("Folder 0"+System.getProperty("file.separator")+"File 0"));
         }
         
         //clicking it again should deselect it

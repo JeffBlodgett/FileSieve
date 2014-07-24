@@ -1,26 +1,23 @@
 package FileSieve.BusinessLogic.FileManagement;
 
+import FileSieve.BusinessLogic.FileEnumeration.DiscoveredPath;
 import org.junit.After;
 import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.Assert;
 
-import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
-import java.util.AbstractMap;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * JUnit testing for the ConcurrentFileManager class
@@ -222,7 +219,7 @@ public class SwingWorkerBasedFileManagerTest implements SwingCopyJobListener {
             Assert.fail("testing of copyPathname method depends on deletePathname testing, one or assertions for which failed");
         }
 
-        Set<Path> pathsToCopy = new LinkedHashSet<Path>(5);
+        Set<Path> pathsToCopy = new LinkedHashSet<>(5);
         pathsToCopy.add(fileManagementTestFolder.resolve("deletionsTestFolder"));
         pathsToCopy.add(fileManagementTestFolder.resolve("sourceFolder1"));
         pathsToCopy.add(fileManagementTestFolder.resolve("sourceFolder2"));
@@ -307,37 +304,38 @@ public class SwingWorkerBasedFileManagerTest implements SwingCopyJobListener {
 
         Path targetFolder = fileManagementTestFolder.resolve("targetFolder");
 
-        // Simulate output of FileEnumeration
-        pathnames.add(fileManagementTestFolder.resolve("deletionsTestFolder"));
-        pathnames.add(fileManagementTestFolder.resolve("sourceFolder1"));
-        pathnames.add(fileManagementTestFolder.resolve("sourceFolder2"));
-        pathnames.add(fileManagementTestFolder.resolve("deletionsTestFolder/deletionsFolder1"));
-        pathnames.add(fileManagementTestFolder.resolve("deletionsTestFolder/deletionsFolder2"));
-        pathnames.add(fileManagementTestFolder.resolve("deletionsTestFolder/deletionsFolder3"));
-        pathnames.add(fileManagementTestFolder.resolve("deletionsTestFolder/deletionsFile4.txt"));
-        pathnames.add(fileManagementTestFolder.resolve("deletionsTestFolder/deletionsFolder2/deletionsFile1.txt"));
-        pathnames.add(fileManagementTestFolder.resolve("deletionsTestFolder/deletionsFolder3/deletionsFolder4"));
-        pathnames.add(fileManagementTestFolder.resolve("deletionsTestFolder/deletionsFolder3/deletionsFile3.txt"));
-        pathnames.add(fileManagementTestFolder.resolve("deletionsTestFolder/deletionsFolder3/deletionsFolder4/deletionsFile2.txt"));
-        pathnames.add(fileManagementTestFolder.resolve("sourceFolder1/folder1"));
-        pathnames.add(fileManagementTestFolder.resolve("sourceFolder1/folder2"));
-        pathnames.add(fileManagementTestFolder.resolve("sourceFolder1/folder3"));
-        pathnames.add(fileManagementTestFolder.resolve("sourceFolder1/file.dat"));
-        pathnames.add(fileManagementTestFolder.resolve("sourceFolder1/file1.dat"));
-        pathnames.add(fileManagementTestFolder.resolve("sourceFolder1/file2.dat"));
-        pathnames.add(fileManagementTestFolder.resolve("sourceFolder1/folder1/folder1SubFolder1"));
-        pathnames.add(fileManagementTestFolder.resolve("sourceFolder1/folder1/folder1SubFolder2"));
-        pathnames.add(fileManagementTestFolder.resolve("sourceFolder1/folder1/file.dat"));
-        pathnames.add(fileManagementTestFolder.resolve("sourceFolder1/folder1/folder1File1.dat"));
-        pathnames.add(fileManagementTestFolder.resolve("sourceFolder1/folder1/folder1File2.dat"));
-        pathnames.add(fileManagementTestFolder.resolve("sourceFolder1/folder2/folder2SubFolder1"));
-        pathnames.add(fileManagementTestFolder.resolve("sourceFolder1/folder2/folder2SubFolder2"));
-        pathnames.add(fileManagementTestFolder.resolve("sourceFolder1/folder2/file.dat"));
-        pathnames.add(fileManagementTestFolder.resolve("sourceFolder1/folder2/folder2File1.dat"));
-        pathnames.add(fileManagementTestFolder.resolve("sourceFolder1/folder2/folder2File2.dat"));
-        pathnames.add(fileManagementTestFolder.resolve("sourceFolder2/file3.dat"));
-        pathnames.add(fileManagementTestFolder.resolve("file4.dat"));
-        pathnames.add(fileManagementTestFolder.resolve("openPathnameTestFile.txt"));
+        /* Simulate the output of a FileEnumerator in which the "FileManagementTestFolder" has been recursively searched
+           for paths (folders and files) */
+        pathnames.add(new DiscoveredPath(fileManagementTestFolder.resolve("deletionsTestFolder"), fileManagementTestFolder));
+        pathnames.add(new DiscoveredPath(fileManagementTestFolder.resolve("sourceFolder1"), fileManagementTestFolder));
+        pathnames.add(new DiscoveredPath(fileManagementTestFolder.resolve("sourceFolder2"), fileManagementTestFolder));
+        pathnames.add(new DiscoveredPath(fileManagementTestFolder.resolve("file4.dat"), fileManagementTestFolder));
+        pathnames.add(new DiscoveredPath(fileManagementTestFolder.resolve("openPathnameTestFile.txt"), fileManagementTestFolder));
+        pathnames.add(new DiscoveredPath(fileManagementTestFolder.resolve("deletionsTestFolder/deletionsFolder1"), fileManagementTestFolder));
+        pathnames.add(new DiscoveredPath(fileManagementTestFolder.resolve("deletionsTestFolder/deletionsFolder2"), fileManagementTestFolder));
+        pathnames.add(new DiscoveredPath(fileManagementTestFolder.resolve("deletionsTestFolder/deletionsFolder3"), fileManagementTestFolder));
+        pathnames.add(new DiscoveredPath(fileManagementTestFolder.resolve("deletionsTestFolder/deletionsFile4.txt"), fileManagementTestFolder));
+        pathnames.add(new DiscoveredPath(fileManagementTestFolder.resolve("deletionsTestFolder/deletionsFolder2/deletionsFile1.txt"), fileManagementTestFolder));
+        pathnames.add(new DiscoveredPath(fileManagementTestFolder.resolve("deletionsTestFolder/deletionsFolder3/deletionsFolder4"), fileManagementTestFolder));
+        pathnames.add(new DiscoveredPath(fileManagementTestFolder.resolve("deletionsTestFolder/deletionsFolder3/deletionsFile3.txt"), fileManagementTestFolder));
+        pathnames.add(new DiscoveredPath(fileManagementTestFolder.resolve("deletionsTestFolder/deletionsFolder3/deletionsFolder4/deletionsFile2.txt"), fileManagementTestFolder));
+        pathnames.add(new DiscoveredPath(fileManagementTestFolder.resolve("sourceFolder1/folder1"),fileManagementTestFolder ));
+        pathnames.add(new DiscoveredPath(fileManagementTestFolder.resolve("sourceFolder1/folder2"), fileManagementTestFolder));
+        pathnames.add(new DiscoveredPath(fileManagementTestFolder.resolve("sourceFolder1/folder3"), fileManagementTestFolder));
+        pathnames.add(new DiscoveredPath(fileManagementTestFolder.resolve("sourceFolder1/file.dat"), fileManagementTestFolder));
+        pathnames.add(new DiscoveredPath(fileManagementTestFolder.resolve("sourceFolder1/file1.dat"), fileManagementTestFolder));
+        pathnames.add(new DiscoveredPath(fileManagementTestFolder.resolve("sourceFolder1/file2.dat"), fileManagementTestFolder));
+        pathnames.add(new DiscoveredPath(fileManagementTestFolder.resolve("sourceFolder1/folder1/folder1SubFolder1"), fileManagementTestFolder));
+        pathnames.add(new DiscoveredPath(fileManagementTestFolder.resolve("sourceFolder1/folder1/folder1SubFolder2"),fileManagementTestFolder ));
+        pathnames.add(new DiscoveredPath(fileManagementTestFolder.resolve("sourceFolder1/folder1/file.dat"), fileManagementTestFolder));
+        pathnames.add(new DiscoveredPath(fileManagementTestFolder.resolve("sourceFolder1/folder1/folder1File1.dat"), fileManagementTestFolder));
+        pathnames.add(new DiscoveredPath(fileManagementTestFolder.resolve("sourceFolder1/folder1/folder1File2.dat"), fileManagementTestFolder));
+        pathnames.add(new DiscoveredPath(fileManagementTestFolder.resolve("sourceFolder1/folder2/folder2SubFolder1"), fileManagementTestFolder));
+        pathnames.add(new DiscoveredPath(fileManagementTestFolder.resolve("sourceFolder1/folder2/folder2SubFolder2"), fileManagementTestFolder));
+        pathnames.add(new DiscoveredPath(fileManagementTestFolder.resolve("sourceFolder1/folder2/file.dat"), fileManagementTestFolder));
+        pathnames.add(new DiscoveredPath(fileManagementTestFolder.resolve("sourceFolder1/folder2/folder2File1.dat"), fileManagementTestFolder));
+        pathnames.add(new DiscoveredPath(fileManagementTestFolder.resolve("sourceFolder1/folder2/folder2File2.dat"), fileManagementTestFolder));
+        pathnames.add(new DiscoveredPath(fileManagementTestFolder.resolve("sourceFolder2/file3.dat"), fileManagementTestFolder));
 
         /* Copy a series (Set) of paths, as they would be output by FileEnumeration, to an existing target folder
            with the overwrite files options set to true */
@@ -347,12 +345,12 @@ public class SwingWorkerBasedFileManagerTest implements SwingCopyJobListener {
                 // exceptions that occur on internal SwingWorker's background thread are rethrown by this method
                 swingCopyJob.awaitCompletion();
 
-                Assert.assertEquals("30 files/folders were copied/created in the target folder", 30, getChildCount(targetFolder));
+                Assert.assertEquals("31 paths created in the target folder", 31, getChildCount(targetFolder));
 
-                Path aFileForWhichToCheckExistence = targetFolder.resolve("sourceFolder1/folder2/folder2File1.dat");
+                Path aFileForWhichToCheckExistence = targetFolder.resolve("FileManagementTestFolder/sourceFolder1/folder2/folder2File1.dat");
                 Assert.assertTrue("copied a particular file into the target folder", Files.isRegularFile(targetFolder.resolve(aFileForWhichToCheckExistence), LinkOption.NOFOLLOW_LINKS));
 
-                Path aFolderForWhichToCheckExistence = targetFolder.resolve("sourceFolder1/folder2/folder2SubFolder2");
+                Path aFolderForWhichToCheckExistence = targetFolder.resolve("FileManagementTestFolder/sourceFolder1/folder2/folder2SubFolder2");
                 Assert.assertTrue("created a particular folder within a subfolder of the target folder", Files.isDirectory(aFolderForWhichToCheckExistence));
 
             } catch (InterruptedException e) {
@@ -379,7 +377,7 @@ public class SwingWorkerBasedFileManagerTest implements SwingCopyJobListener {
             Assert.fail("testing of copyPathname method depends on deletePathname testing, one or assertions for which failed");
         }
 
-        Set<Path> pathsToCopy = new LinkedHashSet<Path>(5);
+        Set<Path> pathsToCopy = new LinkedHashSet<>(5);
         pathsToCopy.add(fileManagementTestFolder.resolve("deletionsTestFolder"));
         pathsToCopy.add(fileManagementTestFolder.resolve("sourceFolder1"));
         pathsToCopy.add(fileManagementTestFolder.resolve("sourceFolder2"));
@@ -508,6 +506,9 @@ public class SwingWorkerBasedFileManagerTest implements SwingCopyJobListener {
 
     @Override
     public void UpdatePathnameCopyProgress(SwingCopyJob swingCopyJob, Path pathnameBeingCopied, int percentProgressed) {
+        // System.err.println(pathnameBeingCopied + " (" + percentProgressed + "%)");
+        // System.out.println(pathnameBeingCopied + "    " + swingCopyJob.getDestinationFolder() + "    " + percentProgressed + "%");
+
         if (percentProgressed == 100) {
             pathsCopied++;
 
@@ -517,7 +518,6 @@ public class SwingWorkerBasedFileManagerTest implements SwingCopyJobListener {
                 }
             }
         }
-        // System.out.println(pathnameBeingCopied + "    " + swingCopyJob.getDestinationFolder() + "    " + percentProgressed + "%");
     }
 
     @Override

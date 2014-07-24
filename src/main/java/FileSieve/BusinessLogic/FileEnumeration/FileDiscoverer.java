@@ -139,7 +139,7 @@ class FileDiscoverer implements FileEnumerator {
 
                 if (Files.isRegularFile(rootPath, LinkOption.NOFOLLOW_LINKS)) {
                     // Add file path to Map
-                    pathMap.put(rootPath, Files.readAttributes(rootPath, BasicFileAttributes.class));
+                    pathMap.put(new DiscoveredPath(rootPath), Files.readAttributes(rootPath, BasicFileAttributes.class));
 
                     // Increment discovered file counter
                     ++fileCountFromLastEnumeration;
@@ -163,19 +163,23 @@ class FileDiscoverer implements FileEnumerator {
 
                         // Add paths to Map
                         for (Path path : pathsInDirectory) {
-                            pathMap.put(path, Files.readAttributes(path, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS));
+                            if (recursionLevel == 1) {
+                                pathMap.put(new DiscoveredPath(path, rootPath), Files.readAttributes(path, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS));
+                            } else {
+                                pathMap.put(new DiscoveredPath(path), Files.readAttributes(path, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS));
+                            }
 
                             if (Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)) {
                                 // Increment discovered file counter
                                 ++fileCountFromLastEnumeration;
 
-                                // Add files bytes to byte counter
+                                // Add file's byte size to byte counter
                                 totalFileByteCountFromLastEnumeration += path.toFile().length();
                             }
                         }
 
-                        // Recursively call method with current directory as the sole path to enumerate
                         if (recursiveSearch) {
+                            // Call this method recursively with each discovered subfolder as the path to enumerate
                             for (Path path : pathsInDirectory) {
                                 if (Files.isDirectory(path)) {
                                     ++recursionLevel;

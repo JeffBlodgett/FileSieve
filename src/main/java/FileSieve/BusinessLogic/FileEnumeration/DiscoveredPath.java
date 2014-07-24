@@ -36,6 +36,7 @@ public class DiscoveredPath implements Path {
      * @param path              the Path instance that is decorated by this DiscoveredPath
      */
     public DiscoveredPath(Path path) {
+
         if (path == null) {
             throw new IllegalArgumentException("Path reference cannot be null");
         }

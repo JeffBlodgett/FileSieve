@@ -58,16 +58,16 @@ public class SelectedPaths {
      * @param pathNames                 A list of strings representing the selected reference paths.
      */
     private void setReferencePathNames(List<String> pathNames) {
-        StringBuilder sb = new StringBuilder();
+        StringBuilder compiledPaths = new StringBuilder();
 
         for (String s : pathNames) {
-            if (sb.length() > 0) {
-                sb.append(MULTIPATH_SEPARATOR);
+            if (compiledPaths.length() > 0) {
+                compiledPaths.append(MULTIPATH_SEPARATOR);
             }
-            sb.append(s);
+            compiledPaths.append(s);
         }
 
-        prefNode.put(DEFAULT_REFERENCEPATH, sb.toString());
+        prefNode.put(DEFAULT_REFERENCEPATH, compiledPaths.toString());
     }
 
     /**

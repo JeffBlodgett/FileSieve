@@ -32,6 +32,12 @@ public class SelectScreen extends JPanel{
             JLabel srcLabel = new JLabel();
             srcLabel.setText("Select Folders:");
             srcLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+            
+            //instructions label
+            JLabel instructLabel1 = new JLabel("To select multiple folders use SHIFT for consecutive"); 
+            instructLabel1.setAlignmentX(Component.RIGHT_ALIGNMENT);
+            JLabel instructLabel2 = new JLabel("and CNTRL for non-consecutive selection"); 
+            instructLabel2.setAlignmentX(Component.RIGHT_ALIGNMENT);
 		
             //Source Filepath tree
             TreeModel model = new FileTreeModel(new File(System.getProperty("user.home")));
@@ -44,7 +50,7 @@ public class SelectScreen extends JPanel{
             srcScrollPane.setSize(200, 200);
             srcScrollPane.setViewportView(srcFilepathTree);
             srcScrollPane.setAlignmentX(Component.LEFT_ALIGNMENT);
-		
+            
             //options checkboxes
             subfoldersCb = new JCheckBox("include subfolders");
             subfoldersCb.setAlignmentX(Component.LEFT_ALIGNMENT); 
@@ -76,19 +82,40 @@ public class SelectScreen extends JPanel{
             srcPane.add(srcLabel);
             srcPane.add(Box.createRigidArea(new Dimension(0,5)));
             srcPane.add(srcScrollPane);
-            srcPane.add(Box.createRigidArea(new Dimension(0,5)));
-            srcPane.add(subfoldersCb);
             srcPane.setBorder(BorderFactory.createEmptyBorder(20,20,0,20));
 		
             add(srcPane, BorderLayout.CENTER);
 		
             JPanel buttonPane = new JPanel();
-            buttonPane.setLayout(new BoxLayout(buttonPane, BoxLayout.LINE_AXIS));
-            buttonPane.setBorder(BorderFactory.createEmptyBorder(0, 20, 20, 20));		
+            buttonPane.setLayout(new BoxLayout(buttonPane, BoxLayout.LINE_AXIS));		
             buttonPane.add(copyBtn);			
             buttonPane.add(findDupsBtn);
+            buttonPane.setAlignmentX(Component.LEFT_ALIGNMENT);
+            
+            JPanel bottomPane = new JPanel();
+            bottomPane.setLayout(new BoxLayout(bottomPane, BoxLayout.LINE_AXIS));
+            
+            JPanel bottomLeftPane = new JPanel();
+            bottomLeftPane.setLayout(new BoxLayout(bottomLeftPane, BoxLayout.PAGE_AXIS));
+            bottomLeftPane.add(subfoldersCb);
+            bottomLeftPane.add(buttonPane);
+            bottomLeftPane.setAlignmentY(Component.TOP_ALIGNMENT);
+            bottomLeftPane.setAlignmentX(Component.LEFT_ALIGNMENT);
+            
+            
+            JPanel bottomRightPane = new JPanel();
+            bottomRightPane.setLayout(new BoxLayout(bottomRightPane, BoxLayout.PAGE_AXIS));
+            bottomRightPane.add(instructLabel1);
+            bottomRightPane.add(instructLabel2);
+            bottomRightPane.setAlignmentY(Component.TOP_ALIGNMENT);
+            bottomRightPane.setAlignmentX(Component.RIGHT_ALIGNMENT);
+            
+            bottomPane.add(bottomLeftPane);
+            bottomPane.add(Box.createHorizontalGlue());
+            bottomPane.add(bottomRightPane);
+            bottomPane.setBorder(BorderFactory.createEmptyBorder(0, 20, 20, 20));
 		
-            add(buttonPane, BorderLayout.PAGE_END);
+            add(bottomPane, BorderLayout.PAGE_END);
 	}
 
 }

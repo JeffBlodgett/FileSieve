@@ -49,7 +49,9 @@ public class Controller {
     private SwingCopyJob swingCopyJob; 
     private DiffReport diffReport;
     List<SimpleImmutableEntry<String, List<File>>> duplicates; //protected so test could mock it
+    List<String> deletedPaths; //protected so test could mock it
     JFileChooser fileChooser; //protected so test could mock it
+    JFileChooser saveFileChooser; //protected so test could mock it
     boolean isTest = false; //used to skip some gui methods for test purposes
     
     public Controller(){
@@ -58,6 +60,9 @@ public class Controller {
        swingFileManager = FileManagerFactory.getSwingFileManager();
        fileChooser = new JFileChooser();
        fileChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+       saveFileChooser = new JFileChooser();
+       saveFileChooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
+       saveFileChooser.setSelectedFile(new File("FileSieveDiffReport.html"));
     }
     
     /**
@@ -133,8 +138,8 @@ public class Controller {
                 Path targetPath = target.toPath();
                 
                 //convert TreePath[] paths to List<Path>
-                List<Path> listOfPaths = new ArrayList<Path>(paths.length);
-                List<String> sourcePathsToSave = new ArrayList<String>(paths.length);
+                List<Path> listOfPaths = new ArrayList<>(paths.length);
+                List<String> sourcePathsToSave = new ArrayList<>(paths.length);
                 for(TreePath path : paths){
                     Path addPath = Paths.get(path.getLastPathComponent().toString());
                     listOfPaths.add(addPath);
@@ -153,7 +158,7 @@ public class Controller {
                     long totalBytes = fileEnumerator.getByteCount();
                     
                     //convert a Map to a Set
-                    Set<Path> pathsToCopy = new LinkedHashSet<Path>(discoveredPaths.keySet());
+                    Set<Path> pathsToCopy = new LinkedHashSet<>(discoveredPaths.keySet());
                     
                     changeScreen(ScreenEnum.COPYPANEL.btnText());
                     setupCopyScreen(target.toString(), totalFiles, totalBytes);
@@ -229,6 +234,8 @@ public class Controller {
         } else {
             copyScreen.copyListModel.addElement("All files are copied! Hooray!");
         }
+        //scroll to the bottom of the list as the items are added
+        copyScreen.copyList.ensureIndexIsVisible(copyScreen.copyListModel.getSize()-1);
         
         //reset buttons active state
         copyScreen.newSearchBtn.setEnabled(true);
@@ -246,7 +253,7 @@ public class Controller {
         if(pathsAreSelected(paths)){
             
             //convert TreePath[] paths to List<Path>
-            List<Path> listOfPaths = new ArrayList<Path>(paths.length);
+            List<Path> listOfPaths = new ArrayList<>(paths.length);
             for(TreePath path : paths){
                 Path addPath = Paths.get(path.getLastPathComponent().toString());
                 listOfPaths.add(addPath);
@@ -334,6 +341,9 @@ public class Controller {
         resultScreen.duplicatesList.setRootVisible(false);
         resultScreen.duplicatesList.setToggleClickCount(0); //prevents from expanding / collapsing tree nodes
         
+        //reset deletedPaths for reports
+        deletedPaths = new ArrayList<>();
+        
         //setup results text
         String totalBytesSearchedStr = FileSieve.gui.util.Utilities.readableFileSize(totalBytesSearched);
         String duplicateBytesStr = FileSieve.gui.util.Utilities.readableFileSize(duplicateBytes);
@@ -344,11 +354,16 @@ public class Controller {
     
     /**
      * Deletes selected paths
-     * @param paths         paths to be deleted
+     * @param paths                     paths to be deleted
+     * @throws NullPointerException     if deletedPaths is not initialized
      */ 
     protected void callDeleteJob(TreePath[] paths){
         //proceed only if paths are selected
         if(pathsAreSelected(paths)){
+            if(deletedPaths == null){
+                throw new NullPointerException("deletedPaths is not initialized.");
+            }
+            
             //reconfirm user wants to delete the selected files
             int confirmDelete = JOptionPane.NO_OPTION;
             //skip confirmation for tests
@@ -362,12 +377,16 @@ public class Controller {
 
                 DefaultTreeModel treeModel = (DefaultTreeModel) resultScreen.duplicatesList.getModel();
                 long deletedBytes = 0;
+                
                 for(TreePath path : paths){
                     
                     try{    
                         File deletedFile = new File(path.getLastPathComponent().toString());
                         deletedBytes += deletedFile.length();
                         long tempBytes = deletedFile.length();
+                        //save file path for report about deleted files
+                        deletedPaths.add(path.getLastPathComponent().toString());
+                        
                         //delete the file
                         Path filePath = Paths.get(path.getLastPathComponent().toString());
                         boolean deletedSuccessfully = swingFileManager.deletePathname(filePath);
@@ -394,7 +413,7 @@ public class Controller {
                 //update result text
                 String deletedBytesStr = FileSieve.gui.util.Utilities.readableFileSize(deletedBytes);
                 resultScreen.fileCntLabel.setText("Deleted "+paths.length+" duplicate files ("+deletedBytesStr+").");
-                
+
             } //deletion confirmed
             
         } // paths are selected
@@ -407,21 +426,27 @@ public class Controller {
             throw new NullPointerException("No duplicates are found yet");
         }
         //open target filepath selection window
-        int retval = fileChooser.showOpenDialog(screens);
+        int retval = saveFileChooser.showSaveDialog(screens);
             
         //if target filepath is selected
         if (retval == JFileChooser.APPROVE_OPTION) {
-            String targetPath = fileChooser.getSelectedFile().toString();
+            String targetPath = saveFileChooser.getSelectedFile().toString();
             try {
-                diffReport = DiffReportFactory.getDiffReport(duplicates);
-                if(!isTest){
-                   JOptionPane.showMessageDialog(screens, "Report is saved", "Success", JOptionPane.INFORMATION_MESSAGE); 
+                //if no files are deleted save info about found duplicates
+                if(deletedPaths == null || deletedPaths.isEmpty()){
+                    diffReport = DiffReportFactory.getDiffReport(duplicates);
+                } else {
+                //if files were recently deleted pass that info to report
+                    diffReport = DiffReportFactory.getDiffReport(duplicates, deletedPaths);
                 }
             } catch (IOException ex) {
                 displayAlert("Couldn't create the report");
             }
             try {
-                diffReport.save(targetPath+"/FileSieveDiffReport.html");
+                diffReport.save(targetPath);
+                if(!isTest){
+                   JOptionPane.showMessageDialog(screens, "Report is saved", "Success", JOptionPane.INFORMATION_MESSAGE); 
+                }
             } catch (IOException|NullPointerException ex) {
                 displayAlert("Couldn't save the report");
             }
@@ -430,7 +455,7 @@ public class Controller {
     
     //helper method to display alerts to user
     private void displayAlert(String msg){
-        //maybe add condition if not test?
+        //don't show alert while testing
         if(!isTest){
             JOptionPane.showMessageDialog(screens, msg, "Can't proceed", JOptionPane.WARNING_MESSAGE);
         }

@@ -23,9 +23,9 @@ public class FileTreeModelTest {
     @Before
     public void setup() {
         testTreeModel = new FileTreeModel(new File(userTempFolder));
-        testDir = new File(userTempFolder + "/TestDirectory");
-        testSubDir = new File(testDir+"/SubDir");
-        testFile = new File(testDir + "/TestFile.txt");
+        testDir = new File(userTempFolder + System.getProperty("file.separator")+"TestDirectory");
+        testSubDir = new File(testDir+System.getProperty("file.separator")+"SubDir");
+        testFile = new File(testDir + System.getProperty("file.separator")+"TestFile.txt");
         try {
             testDir.mkdir();
             testSubDir.mkdir();
@@ -50,7 +50,7 @@ public class FileTreeModelTest {
     
     @Test
     public void testConstruction() {
-        String root = testTreeModel.getRoot().toString()+"/";
+        String root = testTreeModel.getRoot().toString()+System.getProperty("file.separator");
         assertTrue("root setup correctly", root.equals(userTempFolder));
     }
     

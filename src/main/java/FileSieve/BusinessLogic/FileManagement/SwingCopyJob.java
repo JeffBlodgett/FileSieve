@@ -1,5 +1,7 @@
 package FileSieve.BusinessLogic.FileManagement;
 
+import FileSieve.BusinessLogic.FileEnumeration.DiscoveredPath;
+
 import javax.swing.SwingWorker;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
@@ -25,11 +27,11 @@ import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * Copy job
+ * Copy-job implementation, instances of which may be instantiated using one of a SwingFileManager instance's copyPathname(s) method.
  */
 public final class SwingCopyJob {
 
-    // swingCopyJobs Map has protected access instead of private only for testing purposes
+    // The static "swingCopyJobs" Map has protected instead of private access for testing purposes only
     protected static final Map<SwingCopyJob, Map<Path, Integer>> swingCopyJobs = Collections.synchronizedMap(new HashMap<SwingCopyJob, Map<Path, Integer>>(10));
 
     private final Object lockObject = new Object();
@@ -41,7 +43,22 @@ public final class SwingCopyJob {
     private final boolean overwriteExistingFiles;
     private final Comparator<Path> fileComparator;
     private final AtomicBoolean backgroundThreadIsRunning = new AtomicBoolean(false);
+    private final AtomicBoolean jobCancelled = new AtomicBoolean(false);
     private Throwable internalWorkerException = null;
+
+    /**
+     * Extracts the decorated Path from a DiscoveredPath instance.
+     *
+     * @param path  a Path instance
+     * @return      the Path decorated by a DiscoveredPath instance, or the same Path as that provided
+     */
+    private static Path extractPath(Path path) {
+        if (path instanceof DiscoveredPath) {
+            return ((DiscoveredPath) path).getPath();
+        } else {
+            return path;
+        }
+    }
 
     /**
      * Static factory method for creating or retrieving a reference to an equivalent (and ongoing) SwingCopyJob.
@@ -60,17 +77,24 @@ public final class SwingCopyJob {
         if (pathsToBeCopied == null) {
             throw new IllegalArgumentException("null reference passed for \"pathsToBeCopied\" parameter");
         }
-        if ((destinationFolder == null) || (destinationFolder.getNameCount() == 0)) {
+        if ((destinationFolder == null) || (destinationFolder.getFileName().toString().isEmpty())) {
             throw new IllegalArgumentException("null reference passed for \"destinationFolder\" parameter");
         }
 
-        // Convert paths to real paths. This has the added benefit of "cloning" passed Path objects.
+        // Convert paths to real paths
         Set<Path> realPaths = new LinkedHashSet<>(pathsToBeCopied.size());
         for (Path path : pathsToBeCopied) {
-            if ((path == null) || (!Files.exists(path, LinkOption.NOFOLLOW_LINKS))) {
+            if ((path == null) || (!Files.exists(extractPath(path), LinkOption.NOFOLLOW_LINKS))) {
                 throw new IllegalArgumentException("a path included within the \"sourcePathnames\" list does not exist");
             } else {
-                realPaths.add(path.toRealPath(LinkOption.NOFOLLOW_LINKS));
+                if (path instanceof DiscoveredPath) {
+                    Path realPath = path.toRealPath(LinkOption.NOFOLLOW_LINKS);
+                    Path sourceFolder = ((DiscoveredPath)path).getSourceFolder();
+
+                    realPaths.add(new DiscoveredPath(realPath, sourceFolder));
+                } else {
+                    realPaths.add(path.toRealPath(LinkOption.NOFOLLOW_LINKS));
+                }
             }
         }
 
@@ -93,10 +117,10 @@ public final class SwingCopyJob {
                copying a file with the same name to the same destination folder */
             if (jobToReturn == null) {
                 for (Path pathToCopy : realPaths) {
-                    if (Files.isRegularFile(pathToCopy, LinkOption.NOFOLLOW_LINKS)) {
+                    if (Files.isRegularFile(extractPath(pathToCopy), LinkOption.NOFOLLOW_LINKS)) {
                         for (SwingCopyJob swingCopyJob : swingCopyJobs.keySet()) {
                             for (Path path : swingCopyJob.pathsBeingCopied) {
-                                if ((Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)) &&
+                                if ((Files.isRegularFile(extractPath(path), LinkOption.NOFOLLOW_LINKS)) &&
                                         (path.getFileName().equals(pathToCopy.getFileName())) &&
                                         (swingCopyJob.destinationFolder.equals(destinationFolder))
                                         ) {
@@ -114,7 +138,6 @@ public final class SwingCopyJob {
             SwingCopyJob.swingCopyJobs.put(jobToReturn, new HashMap<Path, Integer>(200));
             jobToReturn.worker.execute();
         } else {
-
             if (swingCopyJobListener != null) {
                 jobToReturn.swingCopyJobListeners.add(swingCopyJobListener);
             }
@@ -179,7 +202,7 @@ public final class SwingCopyJob {
                 // May be equal if destination folders and overwrite settings are the same
                 if ((passedInstance.destinationFolder.equals(this.destinationFolder)) && (passedInstance.overwriteExistingFiles == this.overwriteExistingFiles)) {
                     boolean listsAreSame = true;
-                    boolean allFiles = true;
+                    boolean allPathsAreFiles = true;
 
                     // Check to determine if the each copy job is copying the same set of source paths
                     if (this.pathsBeingCopied.size() == passedInstance.pathsBeingCopied.size()) {
@@ -191,20 +214,20 @@ public final class SwingCopyJob {
 
                             /* Check to determine if all the source paths in the lists are regular files, in which
                                case it makes no difference if recursion option is enabled. */
-                            if (!Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)) {
-                                allFiles = false;
+                            if (!Files.isRegularFile(extractPath(path), LinkOption.NOFOLLOW_LINKS)) {
+                                allPathsAreFiles = false;
                             }
                         }
                     }
 
                     // Jobs are equal if they have the same source paths to copy
                     if (listsAreSame) {
-                        if (allFiles) {
+                        if (allPathsAreFiles) {
                             // Jobs are considered equal if only files are being copied
                             result = true;
                         } else if (passedInstance.recursiveCopy == this.recursiveCopy) {
                             /* If one or more folders are being copied then the jobs are equal only if they are both
-                               using the same setting for recursion. */
+                               using the same recursion setting. */
                             result = true;
                         }
                     }
@@ -223,7 +246,7 @@ public final class SwingCopyJob {
      *          if the request to cancel was ignored (typically because the job has already been completed)
      */
     public boolean cancelJob() {
-        return worker.cancel(false);
+        return !jobCancelled.getAndSet(true);
     }
 
     /**
@@ -267,7 +290,7 @@ public final class SwingCopyJob {
      * @return  boolean true if the copy job is running, false if not
      */
     public boolean isRunning() {
-        return ((worker.getState() == SwingWorker.StateValue.DONE) && (!backgroundThreadIsRunning.get()));
+        return ((worker.getState() == SwingWorker.StateValue.STARTED) || (backgroundThreadIsRunning.get()));
     }
 
     /**
@@ -280,11 +303,7 @@ public final class SwingCopyJob {
     public void awaitCompletion() throws InterruptedException, ExecutionException {
         synchronized (lockObject) {
             while ((worker.getState() != SwingWorker.StateValue.DONE) || (backgroundThreadIsRunning.get())) {
-                try {
-                    lockObject.wait();
-                } catch (InterruptedException e) {
-                    // catch spurious interrupts
-                }
+                lockObject.wait();
             }
         }
 
@@ -298,7 +317,7 @@ public final class SwingCopyJob {
     }
 
     /**
-     * Extended SwingWorker for internal use by SwingCopyJob. Executes the copy operation on a background thread.
+     * Extended SwingWorker for internal use by SwingCopyJob. Executes a copy operation on a background thread.
      */
     private class BackgroundCopyWorker extends SwingWorker<Void, SimpleImmutableEntry<Path, Integer>> {
 
@@ -313,6 +332,12 @@ public final class SwingCopyJob {
         private int copyPathsRecursionLevel = 0;
         private List<Path> foldersCreatedInTarget = new ArrayList<>();
 
+        /**
+         * Constructor for the BackgroundCopyWorker class
+         *
+         * @param enclosingSwingCopyJob         reference to the enclosing SwingCopyJob instance
+         * @throws IllegalArgumentException     throw if a null reference is passed for the enclosingSwingCopyJob parameter
+         */
         protected BackgroundCopyWorker(SwingCopyJob enclosingSwingCopyJob) throws IllegalArgumentException {
             if (enclosingSwingCopyJob == null) {
                 throw new IllegalArgumentException("null pathname provided for \"enclosingCopyJob\" parameter");
@@ -325,7 +350,7 @@ public final class SwingCopyJob {
          * Notifies registered CopyJobListeners of progress updates published by the background thread.
          * This method is called on the EDT.
          *
-         * @param updates   Updates published by the SwingWorkers working thread ("doInBackground" method)
+         * @param updates   collection of updates published by the SwingWorkers' working thread (i.e. the "doInBackground" method)
          */
         @Override
         public void process(List<SimpleImmutableEntry<Path, Integer>> updates) {
@@ -367,8 +392,8 @@ public final class SwingCopyJob {
         /**
          * Notifies registered CopyJobListeners that (a) the copy job been has been completed and (b) of any internal
          * exception that might have caused the job to terminate early. This method is called on the EDT unless the
-         * background thread was cancelled using via the cancel() method (enclosing class' cancelJob() method), in
-         * which case the method is called on the caller's thread (which may or may not be the EDT).
+         * background thread was cancelled using the cancel() method (the enclosing class' cancelJob() method), in
+         * which case the method is called on the caller's thread, which may or may not be the EDT.
          */
         @Override
         public void done() {
@@ -394,12 +419,12 @@ public final class SwingCopyJob {
                         }
 
                         thisSwingCopyJob.swingCopyJobListeners.clear();
-
-                        // Signal that the background thread has completed its work (exception or otherwise)
-                        backgroundThreadIsRunning.set(false);
                     }
                 }
             }
+
+            // Signal that the background thread has completed its work (exception or otherwise)
+            backgroundThreadIsRunning.set(false);
 
             // Unblock a caller of the awaitCompletion() method is the enclosing class
             synchronized (lockObject) {
@@ -413,10 +438,11 @@ public final class SwingCopyJob {
          * of the exception encountered, when the worker's get() method is called. If no exceptions were thrown, the get()
          * method returns the (boolean) value returned by this method.
          *
-         * @return                          boolean true if all operations in the
+         * @return                          This method is a member of an extended SwingWorker whose specified return
+         *                                  value is always null. The return value should be ignored in all cases.
          * @throws IllegalStateException    thrown if the sourcePathname does not exist
          * @throws SecurityException        thrown if read access on the sourcePathname or write access on the targetPathname has not been granted
-         * @throws java.io.IOException              thrown if an IOException occurs
+         * @throws java.io.IOException      thrown if an IOException occurs
          */
         @Override
         public Void doInBackground() throws IllegalStateException, SecurityException, IOException {
@@ -424,7 +450,7 @@ public final class SwingCopyJob {
 
             try {
                 for (Path path : thisSwingCopyJob.pathsBeingCopied) {
-                    if (Files.exists(path)) {
+                    if (Files.exists(extractPath(path))) {
                         retrieveTotalBytes(path);
                     } else {
                         throw new IllegalStateException("source pathname does not exist");
@@ -438,7 +464,7 @@ public final class SwingCopyJob {
 
             try {
                 for (Path path : thisSwingCopyJob.pathsBeingCopied) {
-                    if (!isCancelled()) {
+                    if (!jobCancelled.get()) {
                         copyPaths(path, thisSwingCopyJob.destinationFolder);
                     }
                 }
@@ -454,73 +480,92 @@ public final class SwingCopyJob {
         /**
          * Utility method called by doInBackground() method to handle file and folder copy operations
          *
-         * @param sourcePath            source file or folder that is to be copied
-         * @param targetPath            target file or folder to be copied
+         * @param sourcePath            folder or file to be copied
+         * @param targetPath            destination folder to which copy is to be created
          * @throws SecurityException    thrown if the security manager is unable to access a file or folder as requested
          * @throws IOException          thrown if an IOException occurs during a read or write operation
          */
         private void copyPaths(Path sourcePath, Path targetPath) throws SecurityException, IOException {
-            if (!isCancelled()) {
+            if (!jobCancelled.get()) {
                 if (!sourcePath.equals(thisSwingCopyJob.destinationFolder)) {
 
-                    if (!Files.exists(targetPath)) {
+                    if (!Files.exists(extractPath(targetPath))) {
                         targetPath.toFile().mkdirs();
                         if (targetPath.equals(thisSwingCopyJob.destinationFolder)) {
                             publish(new AbstractMap.SimpleImmutableEntry<>(targetPath, ZERO_PERCENT));
                         }
                     }
 
-                    if (Files.isDirectory(sourcePath)) {
+                    if (Files.isDirectory(extractPath(sourcePath))) {
                         if (recursiveCopy) {
                             List<Path> filePaths = new ArrayList<>(50);
-                            try (DirectoryStream<Path> dirStream = Files.newDirectoryStream(sourcePath)) {
+                            try (DirectoryStream<Path> dirStream = Files.newDirectoryStream(extractPath(sourcePath))) {
                                 for (Path path : dirStream) {
                                     filePaths.add(path);
                                 }
                             }
 
                             for (Path path : filePaths) {
-                                if (Files.isDirectory(path)) {
-                                    Path newTargetPath;
-                                    if (copyPathsRecursionLevel == 0) {
-                                        newTargetPath = targetPath.resolve(sourcePath.getFileName().resolve(path.getFileName()));
-                                    } else {
-                                        newTargetPath = targetPath.resolve(path.getFileName());
-                                    }
-
-                                    if (!Files.exists(newTargetPath)) {
-                                        newTargetPath.toFile().mkdir();
-                                    }
-
-                                    publish(new SimpleImmutableEntry<>(newTargetPath, PATHNAME_COPY_AT_100_PERCENT));
-
-                                    if (thisSwingCopyJob.recursiveCopy) {
-                                        ++copyPathsRecursionLevel;
-                                        try {
-                                            copyPaths(path, newTargetPath);
-                                        } finally {
-                                            --copyPathsRecursionLevel;
+                                if (!jobCancelled.get()) {
+                                    if (Files.isDirectory(extractPath(path))) {
+                                        Path newTargetPath;
+                                        if (copyPathsRecursionLevel == 0) {
+                                            newTargetPath = targetPath.resolve(sourcePath.getFileName().resolve(path.getFileName()));
+                                        } else {
+                                            newTargetPath = targetPath.resolve(path.getFileName());
                                         }
-                                    }
 
-                                } else if (Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)) {
-                                    if (copyPathsRecursionLevel == 0) {
-                                        Path newTargetPath = targetPath.resolve(sourcePath.getFileName());
-
-                                        if (!Files.exists(newTargetPath)) {
+                                        if (!Files.exists(extractPath(newTargetPath))) {
                                             newTargetPath.toFile().mkdir();
                                         }
 
-                                        copyFile(path, newTargetPath);
-                                    } else {
-                                        copyFile(path, targetPath);
+                                        publish(new SimpleImmutableEntry<>(newTargetPath, PATHNAME_COPY_AT_100_PERCENT));
+
+                                        if (thisSwingCopyJob.recursiveCopy) {
+                                            ++copyPathsRecursionLevel;
+                                            try {
+                                                copyPaths(path, newTargetPath);
+                                            } finally {
+                                                --copyPathsRecursionLevel;
+                                            }
+                                        }
+
+                                    } else if (Files.isRegularFile(extractPath(path), LinkOption.NOFOLLOW_LINKS)) {
+                                        if (copyPathsRecursionLevel == 0) {
+                                            Path newTargetPath = targetPath.resolve(sourcePath.getFileName());
+
+                                            if (!Files.exists(extractPath(newTargetPath))) {
+                                                newTargetPath.toFile().mkdir();
+                                            }
+
+                                            copyFile(path, newTargetPath);
+                                        } else {
+                                            copyFile(path, targetPath);
+                                        }
                                     }
                                 }
                             }
                         } else {
-                            Path pathToCreateInTargetFolder = null;
+                            // Create file's source folder inside the destination folder, as provided by a FileEnumerator
+                            if (sourcePath instanceof DiscoveredPath) {
+                                Path sourceFolder = ((DiscoveredPath)sourcePath).getSourceFolder();
 
-                            // Determine if the folder's parent was previously created within the target folder
+                                if (!sourceFolder.getFileName().toString().isEmpty()) {
+                                    sourceFolder = sourceFolder.getFileName();
+                                    Path pathToCreateInTargetFolder = targetPath.resolve(sourceFolder);
+
+                                    if (!foldersCreatedInTarget.contains(sourceFolder)) {
+                                        if (!Files.exists(pathToCreateInTargetFolder)) {
+                                            pathToCreateInTargetFolder.toFile().mkdir();
+                                        }
+                                        foldersCreatedInTarget.add(sourceFolder);
+                                    }
+                                }
+                            }
+
+                            /* Determine if the folder's parent was previously created within the target folder,
+                               searching the "foldersCreateInTarget" list in reverse order */
+                            Path pathToCreateInTargetFolder = null;
                             for (int i = foldersCreatedInTarget.size() - 1; i >= 0; --i) {
                                 if (sourcePath.getParent().endsWith(foldersCreatedInTarget.get(i))) {
                                     pathToCreateInTargetFolder = foldersCreatedInTarget.get(i).resolve(sourcePath.getFileName());
@@ -529,23 +574,44 @@ public final class SwingCopyJob {
                             }
 
                             /* If folder's parent was previously created within the target folder then create the
-                               folder within its parent (folder), else create the folder in the root of the target */
+                               folder within that parent, else create the folder in the root of the target */
                             if (pathToCreateInTargetFolder != null) {
                                 Path newPathToCreate = targetPath.resolve(pathToCreateInTargetFolder);
-                                if (!Files.exists(newPathToCreate)) {
-                                    newPathToCreate.toFile().mkdir();
+                                if (!foldersCreatedInTarget.contains(pathToCreateInTargetFolder)) {
+                                    if (!Files.exists(extractPath(newPathToCreate))) {
+                                        newPathToCreate.toFile().mkdir();
+                                    }
                                     foldersCreatedInTarget.add(pathToCreateInTargetFolder);
                                 }
-                            } else if (!Files.exists(targetPath.resolve(sourcePath.getFileName()))) {
-                                targetPath.resolve(sourcePath.getFileName()).toFile().mkdir();
+                            } else {
+                                if (!Files.exists(targetPath.resolve(sourcePath.getFileName()))) {
+                                    targetPath.resolve(sourcePath.getFileName()).toFile().mkdir();
+                                }
                                 foldersCreatedInTarget.add(sourcePath.getFileName());
                             }
                         }
 
                     } else {
-                        Path parentPathCreatedInTargetFolder = null;
+                        // Create file's source folder inside the destination folder, as provided by a FileEnumerator
+                        if (sourcePath instanceof DiscoveredPath) {
+                            Path sourceFolder = ((DiscoveredPath)sourcePath).getSourceFolder();
 
-                        // Determine if the file's parent folder was created within the target folder
+                            if (!sourceFolder.getFileName().toString().isEmpty()) {
+                                sourceFolder = sourceFolder.getFileName();
+                                Path pathToCreateInTargetFolder = targetPath.resolve(sourceFolder);
+
+                                if (!foldersCreatedInTarget.contains(sourceFolder)) {
+                                    if (!Files.exists(pathToCreateInTargetFolder)) {
+                                        pathToCreateInTargetFolder.toFile().mkdir();
+                                    }
+                                    foldersCreatedInTarget.add(sourceFolder);
+                                }
+                            }
+                        }
+
+                        /* Determine if the file's parent folder was previously created within the target folder,
+                           searching the "foldersCreateInTarget" list in reverse order */
+                        Path parentPathCreatedInTargetFolder = null;
                         for (int i = foldersCreatedInTarget.size() - 1; i >= 0; --i) {
                             if (sourcePath.getParent().endsWith(foldersCreatedInTarget.get(i))) {
                                 parentPathCreatedInTargetFolder = foldersCreatedInTarget.get(i);
@@ -553,10 +619,11 @@ public final class SwingCopyJob {
                             }
                         }
 
+                        /* If file's parent was previously created within the target folder then create the file copy
+                           within that parent, else create the file in the root of the target */
                         if (parentPathCreatedInTargetFolder != null) {
                             copyFile(sourcePath, targetPath.resolve(parentPathCreatedInTargetFolder));
                         } else {
-                            // Copy file to the root of the target folder
                             copyFile(sourcePath, targetPath);
                         }
 
@@ -572,7 +639,7 @@ public final class SwingCopyJob {
          * @param target                folder to which copy is to be placed
          * @throws SecurityException    thrown if the security manager denies read access to the original file or write
          *                              access to the folder to contain the copy
-         * @throws IOException          throw if an IOException occurs during read/write operations
+         * @throws IOException          thrown if an IOException occurs during read/write operations
          */
         private void copyFile(Path fileToCopy, Path target) throws SecurityException, IOException {
             target = target.resolve(fileToCopy.getFileName());
@@ -587,7 +654,7 @@ public final class SwingCopyJob {
             if ((!filesAreSimilar) || overwriteExistingFiles)  {
                 long soFar = 0L;    // file bytes copied thus far
                 int sourceByte;
-                int filePercentCopied;
+                int filePercentCopied = ZERO_PERCENT;
                 int totalPercentPreviouslyCopied = totalPercentCopied;
                 int pathnameProgress = ZERO_PERCENT;
 
@@ -595,9 +662,9 @@ public final class SwingCopyJob {
                         BufferedInputStream bis = new BufferedInputStream(new FileInputStream(fileToCopy.toFile()));
                         BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(target.toFile()))
                 ) {
-                /* Copy file one byte at time. BufferedInputStream and BufferedOutputStream have, well, buffers so
+                /* Copy file one byte at time. BufferedInputStream and BufferedOutputStream have buffers so
                    so this isn't as slow as it might at first seem */
-                    while (((sourceByte = bis.read()) != -1) && (!isCancelled())) {
+                    while (((sourceByte = bis.read()) != -1) && (!jobCancelled.get())) {
                         bos.write(sourceByte);
 
                         /* Update copy job's total progress if progress has incremented by at least 1 percent and is not
@@ -617,14 +684,28 @@ public final class SwingCopyJob {
                         }
                     }
 
-                    // No need to set "pathnameProgress" variable to 100... just publish and move on
-                    publish(new SimpleImmutableEntry<>(target, PATHNAME_COPY_AT_100_PERCENT));
+                    // Delete file fragment
+                    if (jobCancelled.get() && (filePercentCopied < ONE_HUNDRED_PERCENT)) {
+                        bos.close();
+                        Files.deleteIfExists(target);
+
+                        // Backtrack... set+publish the total job progress to the value had prior to this attempted file
+                        // copy and set+publish the progress for the failed copy to/as 0 percent
+                        int progress = (int) ((totalPercentPreviouslyCopied + fileBytes) * ONE_HUNDRED_PERCENT / totalBytes);
+                        setProgress(progress);
+                        publish(new SimpleImmutableEntry<>(thisSwingCopyJob.destinationFolder, progress));
+                        publish(new SimpleImmutableEntry<>(target, ZERO_PERCENT));
+                    } else {
+                        // No need to set "pathnameProgress" variable to 100... publish completion of the file copy and move on
+                        publish(new SimpleImmutableEntry<>(target, PATHNAME_COPY_AT_100_PERCENT));
+                    }
 
                 } catch (IOException e) {
                     // Backtrack... set+publish the total job progress to the value had prior to this attempted file
-                    // and set+publish the progress for the failed copy as 0 percent
-                    setProgress((int) ((totalPercentPreviouslyCopied + fileBytes) * ONE_HUNDRED_PERCENT / totalBytes));
-                    publish(new SimpleImmutableEntry<>(thisSwingCopyJob.destinationFolder, getProgress()));
+                    // copy and set+publish the progress for the failed copy to/as 0 percent
+                    int progress = (int) ((totalPercentPreviouslyCopied + fileBytes) * ONE_HUNDRED_PERCENT / totalBytes);
+                    setProgress(progress);
+                    publish(new SimpleImmutableEntry<>(thisSwingCopyJob.destinationFolder, progress));
                     publish(new SimpleImmutableEntry<>(target, 0));
 
                     try {
@@ -648,14 +729,14 @@ public final class SwingCopyJob {
         }
 
         private void retrieveTotalBytes(Path sourcePathname) throws SecurityException, IOException {
-            if (Files.isDirectory(sourcePathname)) {
-                try (DirectoryStream<Path> dirStream = Files.newDirectoryStream(sourcePathname)) {
+            if (Files.isDirectory(extractPath(sourcePathname))) {
+                try (DirectoryStream<Path> dirStream = Files.newDirectoryStream(extractPath(sourcePathname))) {
                     for (Path path : dirStream) {
-                        if (!isCancelled()) {
+                        if (!jobCancelled.get()) {
                             // Exclude target folder if it is a subfolder of the source folder
-                            if (Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS) && (!path.equals(thisSwingCopyJob.destinationFolder) && thisSwingCopyJob.recursiveCopy)) {
+                            if (Files.isDirectory(extractPath(path), LinkOption.NOFOLLOW_LINKS) && (!path.equals(thisSwingCopyJob.destinationFolder) && thisSwingCopyJob.recursiveCopy)) {
                                 retrieveTotalBytes(path);
-                            } else if (Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)) {
+                            } else if (Files.isRegularFile(extractPath(path), LinkOption.NOFOLLOW_LINKS)) {
                                 totalBytes += path.toFile().length();
                             }
                         }
@@ -685,7 +766,7 @@ public final class SwingCopyJob {
             int result = -1;
 
             if ((path1 != null) && (path2 != null)) {
-                if (Files.isRegularFile(path1, LinkOption.NOFOLLOW_LINKS) && Files.isRegularFile(path2, LinkOption.NOFOLLOW_LINKS)) {
+                if (Files.isRegularFile(extractPath(path1), LinkOption.NOFOLLOW_LINKS) && Files.isRegularFile(extractPath(path2), LinkOption.NOFOLLOW_LINKS)) {
                     if (path1.getFileName().toString().toLowerCase().equals(path2.getFileName().toString().toLowerCase())) {
                         if (path1.toFile().length() == path2.toFile().length()) {
                             result = 0;

@@ -27,7 +27,7 @@ import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * Copy-job implementation, instances of which may be requested using a SwingFileManager instance's copyPathname(s) method.
+ * Copy-job implementation, instances of which may be instantiated using one of a SwingFileManager instance's copyPathname(s) method.
  */
 public final class SwingCopyJob {
 
@@ -290,7 +290,7 @@ public final class SwingCopyJob {
      * @return  boolean true if the copy job is running, false if not
      */
     public boolean isRunning() {
-        return ((worker.getState() == SwingWorker.StateValue.DONE) && (!backgroundThreadIsRunning.get()));
+        return ((worker.getState() == SwingWorker.StateValue.STARTED) || (backgroundThreadIsRunning.get()));
     }
 
     /**
@@ -303,11 +303,7 @@ public final class SwingCopyJob {
     public void awaitCompletion() throws InterruptedException, ExecutionException {
         synchronized (lockObject) {
             while ((worker.getState() != SwingWorker.StateValue.DONE) || (backgroundThreadIsRunning.get())) {
-                try {
-                    lockObject.wait();
-                } catch (InterruptedException e) {
-                    // catch spurious interrupts
-                }
+                lockObject.wait();
             }
         }
 
@@ -423,12 +419,12 @@ public final class SwingCopyJob {
                         }
 
                         thisSwingCopyJob.swingCopyJobListeners.clear();
-
-                        // Signal that the background thread has completed its work (exception or otherwise)
-                        backgroundThreadIsRunning.set(false);
                     }
                 }
             }
+
+            // Signal that the background thread has completed its work (exception or otherwise)
+            backgroundThreadIsRunning.set(false);
 
             // Unblock a caller of the awaitCompletion() method is the enclosing class
             synchronized (lockObject) {

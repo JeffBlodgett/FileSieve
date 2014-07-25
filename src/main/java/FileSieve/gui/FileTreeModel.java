@@ -21,13 +21,13 @@ public class FileTreeModel
     implements TreeModel, Serializable{
     
     private static final Object LEAF = new Serializable() { };
-    private Map map;
+    private Map<File, Object> map;
     private File root;
 
     FileTreeModel(File root){
         this.root = root;
 
-        this.map = new HashMap();
+        this.map = new HashMap<>();
         
         if (!root.isDirectory()){
             map.put(root, LEAF);
@@ -65,9 +65,10 @@ public class FileTreeModel
     public int getIndexOfChild(Object parent, Object child){
         return children(parent).indexOf(child);
     }
-
-    protected List children(Object node){
+    
+    protected List<File> children(Object node){
         File f = (File)node;
+        List<File> children;
 
         Object value = map.get(f);
 
@@ -75,13 +76,11 @@ public class FileTreeModel
             return null;
         }
 
-        List children = (List)value;
-
-        if (children == null){
+        if (value == null){
             File[] c = f.listFiles();
 
             if (c != null){
-                children = new ArrayList(c.length);
+                children = new ArrayList<>(c.length);
 
                 for (int len = c.length, i = 0; i < len; i++){
                     if(c[i].isDirectory() && !c[i].isHidden()){
@@ -92,10 +91,16 @@ public class FileTreeModel
                     }
                 }
             } else {
-                children = new ArrayList(0);
+                children = new ArrayList<>(0);
             }
 
             map.put(f, children);       
+        } else {
+            /* the cast to List<File> is safe because value can be either LEAF
+            which is covered above, or null which is also covered above or List<File>.
+            No other values are ever put into map */
+            @SuppressWarnings("unchecked") List<File> castChildren = (List<File>)value;
+            children = castChildren;
         }
 
         return children;

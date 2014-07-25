@@ -79,13 +79,13 @@ public class CopyJobListenerTest {
     public void testUpdatePathnameCopyProgress(){
         //test individual file percentage
         int percentDone = 60;
-        String fileProgressStr = "Copying "+testPath1.toString()+" ("+percentDone+"%)";
+        String fileProgressStr = "Creating "+testPath1.toString()+" ("+percentDone+"%)";
         listener.UpdatePathnameCopyProgress(null, testPath1, percentDone);
         assertTrue("individual progress shows correctly", fileProgressStr.equals(copyScreen.copyListModel.get(0).toString()));
         
         //test agian with same file - it should update
         percentDone = 70;
-        fileProgressStr = "Copying "+testPath1.toString()+" ("+percentDone+"%)";
+        fileProgressStr = "Creating "+testPath1.toString()+" ("+percentDone+"%)";
         listener.UpdatePathnameCopyProgress(null, testPath1, percentDone);
         assertTrue("individual progress shows correctly", fileProgressStr.equals(copyScreen.copyListModel.get(0).toString()));
         assertEquals("indivdual progress updates, no new list items are created", 1, copyScreen.copyListModel.getSize());

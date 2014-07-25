@@ -18,8 +18,8 @@ public class CopyScreen extends JPanel{
     private Controller controller;
     JLabel targetLabel;
     JLabel progressTxt;
-    JList copyList;
-    DefaultListModel copyListModel;
+    JList<String> copyList;
+    DefaultListModel<String> copyListModel;
     JProgressBar totalProgressBar;
     JButton cancelBtn;
     JButton newSearchBtn;
@@ -42,8 +42,8 @@ public class CopyScreen extends JPanel{
 	progressTxt.setAlignmentX(Component.LEFT_ALIGNMENT);
 		
 	//Copy Files list
-        copyListModel = new DefaultListModel();
-        copyList = new JList(copyListModel);
+        copyListModel = new DefaultListModel<>();
+        copyList = new JList<>(copyListModel);
 		
 	//Scroll pane for copy files list
 	JScrollPane copyScrollPane = new JScrollPane();

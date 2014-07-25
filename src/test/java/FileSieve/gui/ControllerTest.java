@@ -129,14 +129,15 @@ public class ControllerTest {
         testSourcePath(null);
         
         //test with source path selected
-        TreePath[] paths = {new TreePath(new Object[] {fileTestFolder+"/sourceFolder2"})};
+        TreePath[] paths = {new TreePath(new Object[] {fileTestFolder+System.getProperty("file.separator")+"sourceFolder2"})};
         
         //mock the fileChooser
         JFileChooser fileChooserMock = mock(JFileChooser.class);
         when(fileChooserMock.showOpenDialog(any(JFrame.class))).thenReturn(0);
         
         //setup target
-        File testTarget = new File(fileTestFolder.resolve("sourceFolder1/folder3").toString());
+        File testTarget = new File(fileTestFolder.resolve(
+                "sourceFolder1"+System.getProperty("file.separator")+"folder3").toString());
         when(fileChooserMock.getSelectedFile()).thenReturn(testTarget);       
         controller.fileChooser = fileChooserMock;
         
@@ -239,7 +240,9 @@ public class ControllerTest {
         DefaultMutableTreeNode root = (DefaultMutableTreeNode) treeModel.getRoot();
         DefaultMutableTreeNode filename = new DefaultMutableTreeNode("file.dat");
         root.add(filename);
-        File testFile = new File(fileTestFolder+"/sourceFolder1/folder1/file.dat");
+        File testFile = new File(fileTestFolder+System.getProperty("file.separator")+
+                "sourceFolder1"+System.getProperty("file.separator")+"folder1"+
+                System.getProperty("file.separator")+"file.dat");
         DefaultMutableTreeNode dupFile = new DefaultMutableTreeNode(testFile);
         filename.add(dupFile);
         controller.resultScreen.checkTree.getSelectionModel().addSelectionPath(new TreePath(dupFile.getPath()));
@@ -251,8 +254,12 @@ public class ControllerTest {
                 controller.resultScreen.checkTree.getSelectionModel().getSelectionCount());
         
         //get number of files in folder
-        File deletedFromFolder = new File(fileTestFolder.resolve("sourceFolder1/folder1").toString());
+        File deletedFromFolder = new File(fileTestFolder.resolve(
+                "sourceFolder1"+System.getProperty("file.separator")+"folder1").toString());
         int filesInFolder = deletedFromFolder.listFiles().length;
+        
+        //initialize deletePaths
+        controller.deletedPaths = new ArrayList<>(0);
         
         controller.callDeleteJob(paths);
         assertEquals("the tree should have 0 elements under filename now", 0, treeModel.getChildCount(filename));
@@ -278,8 +285,11 @@ public class ControllerTest {
     public void testSaveDiffReport(){       
         //stub duplicates
         String fileName = "file.dat";
-        File match1 = new File(fileTestFolder + "/sourceFolder1/file.dat");
-        File match2 = new File(fileTestFolder + "/sourceFolder1/folder1/file.dat");
+        File match1 = new File(fileTestFolder + System.getProperty("file.separator")+
+                "sourceFolder1"+System.getProperty("file.separator")+"file.dat");
+        File match2 = new File(fileTestFolder + System.getProperty("file.separator")+
+                "sourceFolder1"+System.getProperty("file.separator")+"folder1"+
+                System.getProperty("file.separator")+"file.dat");
         List<File> matchList = new ArrayList<>();
         matchList.add(match1);
         matchList.add(match2);
@@ -294,15 +304,29 @@ public class ControllerTest {
         when(fileChooserMock.showOpenDialog(any(JFrame.class))).thenReturn(0);
         
         //setup target
-        File testTarget = new File(fileTestFolder.toString());
+        File testTarget = new File(fileTestFolder.toString()+
+                System.getProperty("file.separator")+"FileSieveDiffReport.html");
         when(fileChooserMock.getSelectedFile()).thenReturn(testTarget);       
-        controller.fileChooser = fileChooserMock;
+        controller.saveFileChooser = fileChooserMock;
         
         //check that report is saved      
         controller.duplicates = duplicates;
         controller.saveDiffReport();
-        long savedReportSize = new File(testTarget.toString()+"/FileSieveDiffReport.html").length();
+        long savedReportSize = testTarget.length();
         assertTrue("Saved report should have positive filelength", savedReportSize > 0);
+        
+        //check that report with deleted files differs from report with no deleted files
+        File testTargetWithDel = new File(fileTestFolder.toString()+
+                System.getProperty("file.separator")+"FileSieveDiffReportDel.html");
+        when(fileChooserMock.getSelectedFile()).thenReturn(testTargetWithDel);       
+        controller.saveFileChooser = fileChooserMock;
+
+        controller.deletedPaths = new ArrayList<>(1);
+        controller.deletedPaths.add(match2.toString());
+        controller.saveDiffReport();
+        long savedReportSize2 = testTargetWithDel.length();
+        assertTrue("Report with deleted files should be longer then the report without them", 
+                savedReportSize < savedReportSize2);
         
         //calling method when duplicates are not defined should cause NullPointerException
         controller.duplicates = null;

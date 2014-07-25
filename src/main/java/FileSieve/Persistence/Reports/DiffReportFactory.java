@@ -24,8 +24,22 @@ public class DiffReportFactory {
      * @return                          an instance of a new DiffReport object
      * @throws java.io.IOException
      */
-    public static DiffReport getDiffReport(List<SimpleImmutableEntry<String, List<File>>> diffResults) throws IOException {
+    public static DiffReport getDiffReport(List<SimpleImmutableEntry<String, List<File>>> diffResults)
+            throws IOException {
         return new HTMLDiffReport(diffResults);
+    }
+
+    /**
+     * Static factory method to return DiffReports (for now just the HTMLDiffReport)
+     *
+     * @param diffResults               the results of a FileDifferentiator object
+     * @return                          an instance of a new DiffReport object
+     * @throws java.io.IOException
+     */
+    public static DiffReport getDiffReport(List<SimpleImmutableEntry<String, List<File>>> diffResults,
+                                                   List<String> deletedPaths)
+            throws IOException {
+        return new HTMLDiffReport(diffResults, deletedPaths);
     }
 
 }

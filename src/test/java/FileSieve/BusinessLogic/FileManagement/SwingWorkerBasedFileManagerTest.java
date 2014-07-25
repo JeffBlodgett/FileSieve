@@ -214,6 +214,121 @@ public class SwingWorkerBasedFileManagerTest implements SwingCopyJobListener {
     }
 
     @Test
+    public void testCopyPathname_SingleFolder_WithRecursion_TwoConcurrentJobs() throws IOException, InterruptedException, ExecutionException {
+        if (!deletePathnameTestsPassed) {
+            Assert.fail("testing of copyPathname method depends on deletePathname testing, one or assertions for which failed");
+        }
+
+        Path folderToCopy = fileManagementTestFolder.resolve("sourceFolder1");
+
+        Path targetFolder = fileManagementTestFolder.resolve("targetFolder");
+        Path targetFolder2 = fileManagementTestFolder.resolve("targetFolder2");
+
+        // Copy a folder, with the contents of all subfolders (recursion option = true), to a non-existent target folder
+        SwingCopyJob swingCopyJob1 = swingFileManager.copyPathname(folderToCopy, targetFolder, true, false, null);
+
+        // Copy same folder, with the contents of all subfolders (recursion option = true), to a second non-existent target folder
+        SwingCopyJob swingCopyJob2 = swingFileManager.copyPathname(folderToCopy, targetFolder2, true, false, null);
+
+        int jobThatEncounteredException = 1;
+
+        if ((swingCopyJob1 != null) && (swingCopyJob2 != null)) {
+            try {
+                // exceptions that occur on internal copy job's background SwingWorker thread are rethrown by this method
+                swingCopyJob1.awaitCompletion();
+
+                jobThatEncounteredException = 2;
+                swingCopyJob2.awaitCompletion();
+
+                Assert.assertEquals("recursive copying of a folder created 17 files/folders in first job's target folder", 17, getChildCount(targetFolder));
+                Assert.assertEquals("recursive copying of a folder created 17 files/folders in second job's target folder", 17, getChildCount(targetFolder2));
+
+                Path job1aFileForWhichToCheckExistence = targetFolder.resolve(folderToCopy.getFileName().resolve("folder2/folder2File1.dat"));
+                Assert.assertTrue("recursive copying of a folder, first job copied a file into its target folder", Files.isRegularFile(targetFolder.resolve(job1aFileForWhichToCheckExistence), LinkOption.NOFOLLOW_LINKS));
+
+                Path job2aFileForWhichToCheckExistence = targetFolder2.resolve(folderToCopy.getFileName().resolve("folder2/folder2File1.dat"));
+                Assert.assertTrue("recursive copying of a folder, second job copied a file into its target folder", Files.isRegularFile(targetFolder.resolve(job2aFileForWhichToCheckExistence), LinkOption.NOFOLLOW_LINKS));
+
+                Path job1aFolderForWhichToCheckExistence = targetFolder.resolve(folderToCopy.getFileName().resolve("folder2/folder2SubFolder2"));
+                Assert.assertTrue("recursive copying of a folder, first job created a folder within a subfolder of its target folder", Files.isDirectory(job1aFolderForWhichToCheckExistence));
+
+                Path job2aFolderForWhichToCheckExistence = targetFolder2.resolve(folderToCopy.getFileName().resolve("folder2/folder2SubFolder2"));
+                Assert.assertTrue("recursive copying of a folder, second job created a folder within a subfolder of its target folder", Files.isDirectory(job2aFolderForWhichToCheckExistence));
+
+                        } catch (InterruptedException e) {
+                Assert.fail("InterruptedException in job #" + jobThatEncounteredException + " during BackgroundCopyWorker execution, recursive copying of a folder");
+
+            } catch (ExecutionException e) {
+                Assert.fail(e.getCause().getClass().getSimpleName() + " during BackgroundCopyWorker execution in job #" + jobThatEncounteredException + ", recursive copying of a folder. Message: " + e.getCause().getMessage());
+
+            } finally {
+                if (!swingFileManager.deletePathname(targetFolder)) {
+                    Assert.fail("unable to delete \"targetFolder\" folder following recursive folder copy test");
+                }
+                if (!swingFileManager.deletePathname(targetFolder2)) {
+                    Assert.fail("unable to delete \"targetFolder\" folder following recursive folder copy test");
+                }
+            }
+
+        } else {
+            if ((swingCopyJob1 != null) && (swingCopyJob1.isRunning())) {
+                swingCopyJob1.cancelJob();
+                swingCopyJob1.awaitCompletion();
+            }
+            if ((swingCopyJob2 != null) && (swingCopyJob2.isRunning())) {
+                swingCopyJob2.cancelJob();
+                swingCopyJob2.awaitCompletion();
+            }
+
+            Assert.fail("Unable to create or retrieve a SwingCopyJob instance");
+        }
+
+        Assert.assertEquals("tracked copy jobs have been been removed from SwingCopyJob class' internal map", 0, SwingCopyJob.swingCopyJobs.size());
+    }
+
+    @Test
+    public void testCopyPathname_SingleFolder_WithRecursion_TwoSimilarJobs() throws IOException, InterruptedException, ExecutionException {
+        if (!deletePathnameTestsPassed) {
+            Assert.fail("testing of copyPathname method depends on deletePathname testing, one or assertions for which failed");
+        }
+
+        Path folderToCopy = fileManagementTestFolder.resolve("sourceFolder1");
+        Path targetFolder = fileManagementTestFolder.resolve("targetFolder");
+
+        // Copy a folder, with the contents of all subfolders (recursion option = true), to a non-existent target folder
+        SwingCopyJob swingCopyJob1 = swingFileManager.copyPathname(folderToCopy, targetFolder, true, false, null);
+
+        // Copy same folder, with the contents of all subfolders (recursion option = true), to a second non-existent target folder
+        SwingCopyJob swingCopyJob2 = swingFileManager.copyPathname(folderToCopy, targetFolder, true, false, null);
+
+        try {
+            Assert.assertTrue("The two job references are the same", swingCopyJob1 == swingCopyJob2);
+
+            if ((swingCopyJob1 != null) && (swingCopyJob1.isRunning())) {
+                swingCopyJob1.cancelJob();
+                swingCopyJob1.awaitCompletion();
+            }
+        } catch (InterruptedException e) {
+            Assert.fail("InterruptedException during BackgroundCopyWorker execution, request for two similar jobs. Messae: " + e.getMessage());
+
+        } catch (ExecutionException e) {
+            Assert.fail(e.getCause().getClass().getSimpleName() + " during BackgroundCopyWorker execution, request for two similar jobs. Message: " + e.getCause().getMessage());
+
+        } finally {
+            try {
+                if ((swingCopyJob2 != null) && (swingCopyJob2 != swingCopyJob1) && (swingCopyJob2.isRunning())) {
+                    swingCopyJob2.cancelJob();
+                    swingCopyJob2.awaitCompletion();
+                }
+            } finally {
+                swingFileManager.deletePathname(targetFolder);
+            }
+        }
+
+        Assert.assertEquals("tracked copy jobs have been been removed from SwingCopyJob class' internal map", 0, SwingCopyJob.swingCopyJobs.size());
+    }
+
+    @Test
     public void testCopyPathnames_MultipleFoldersAndFiles_WithRecursion() throws IOException {
         if (!deletePathnameTestsPassed) {
             Assert.fail("testing of copyPathname method depends on deletePathname testing, one or assertions for which failed");

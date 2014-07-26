@@ -1,20 +1,27 @@
 package FileSieve.BusinessLogic.FileManagement;
 
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
 /**
- * Concrete file manager class which inherits FileCopier and FileDeleter implementations from the AbstractFileManager
- * class and implements FileCopier. This class is package-private.
+ * Concrete file manager class which inherits FileCopier and FileDeleter implementations from AbstractFileManager
+ * and provides for FileCopier implementations. This class is package-private.
  */
 final class SwingWorkerBasedFileManager extends AbstractFileManager<SwingCopyJob, SwingCopyJobListener, Path> implements SwingFileManager {
 
     private int workerLimit;
     private SwingCopyJobListener swingCopyJobListener;
 
+    /**
+     * (Future functionality) for limiting the number of worker threads used by a copy job.
+     *
+     * @param workerThreadLimit
+     */
     protected SwingWorkerBasedFileManager(int workerThreadLimit) {
         this.workerLimit = workerThreadLimit;
     }

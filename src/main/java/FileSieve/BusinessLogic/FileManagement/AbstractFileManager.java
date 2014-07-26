@@ -17,7 +17,7 @@ import java.nio.file.attribute.BasicFileAttributes;
  *              completed successfully.
  * @param <L>   The type of the listener which is to receive copy notifications, as set by the "setCopyOperationsListener"
  *              method of the FileCopier interface.
- * @Param <C>   The type of the Comparator object to be used by the copyPathname method in determining if two
+ * @param <C>   The type of the Comparator object to be used by the copyPathname method in determining if two
  *              files are similar.
 */
 abstract class AbstractFileManager<T, L, C> implements FileOpener, FileDeleter, FileCopier<T, L, C> {
@@ -139,4 +139,4 @@ abstract class AbstractFileManager<T, L, C> implements FileOpener, FileDeleter, 
         });
     }
 
-} // abstract class FileManager<T,L> implements FileOpener, FileDeleter, FileCopier<T,L>
+} // abstract class AbstractFileManager<T, L, C> implements FileOpener, FileDeleter, FileCopier<T, L, C>

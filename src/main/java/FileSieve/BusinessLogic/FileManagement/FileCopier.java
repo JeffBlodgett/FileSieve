@@ -12,7 +12,7 @@ import java.util.Set;
  *              be a Boolean object indicating if the copy operation was started or completed successfully.
  * @param <L>   The type of the listener which is to receive copy notifications, settable via the
  *              interface's "setCopyOperationsListener" method.
- * @Param <C>   The type of the Comparator object to be used by the copyPathname method in determining if two
+ * @param <C>   The type of the Comparator object to be used by the copyPathname method in determining if two
  *              files are similar.
  */
 interface FileCopier<T, L, C> {
@@ -23,12 +23,11 @@ interface FileCopier<T, L, C> {
      * operation on a separate thread.
      *
      * @param sourcePathnames           pathnames of folder and/or files to copy
-     * @param targetPathname            pathname of file or folder to create/write
-     * @param recursionEnabled          recursive search for files within subfolders
+     * @param targetPathname            pathname of folder into which to copy sourcePathnames items
+     * @param recursionEnabled          boolean value specifying if a recursive search for files/folders within subfolders of the sourcePathnames items should be carried out
      * @param overwriteExistingFiles    indicates if existing files in the target path should be overwritten
-     * @param fileComparator            used in determining if two files are dissimilar, in which case the file
-     *                                  in the destination path is overwritten depending on the value of the
-     *                                  overwriteExistingFiles parameter
+     * @param fileComparator            Function object to be used in determining if two files are similar/dissimilar. If dissimilar, the file in the destination path is
+     *                                  overwritten depending on the value of the overwriteExistingFiles parameter
      * @return                          implementer defined return type
      * @throws IOException              thrown for implementer defined reason(s)
      */
@@ -40,12 +39,11 @@ interface FileCopier<T, L, C> {
      * operation on the current thread or return a provider (such as a SwingWorker) capable of handling the copy operation on a separate thread.
      *
      * @param sourcePathname            pathname of file or folder to copy
-     * @param targetPathname            pathname of file or folder to create/write
-     * @param recursionEnabled          recursive search for files within subfolders
+     * @param targetPathname            pathname of folder into which to copy sourcePathnames items
+     * @param recursionEnabled          boolean value specifying if a recursive search for files/folders within subfolders of the sourcePathnames items should be carried out
      * @param overwriteExistingFiles    indicates if existing files in the target path should be overwritten
-     * @param fileComparator            used in determining if two files are dissimilar, in which case the file
-     *                                  in the destination path is overwritten depending on the value of the
-     *                                  overwriteExistingFiles parameter
+     * @param fileComparator            Function object to be used in determining if two files are similar/dissimilar. If dissimilar, the file in the destination path is
+     *                                  overwritten depending on the value of the overwriteExistingFiles parameter
      * @return                          implementer defined return type
      * @throws IOException              thrown for implementer defined reason(s)
      */

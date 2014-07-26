@@ -47,7 +47,7 @@ public final class SwingCopyJob {
     private Throwable internalWorkerException = null;
 
     /**
-     * Extracts the decorated Path from a DiscoveredPath instance.
+     * Extracts the decorated (wrapped) Path from a DiscoveredPath instance.
      *
      * @param path  a Path instance
      * @return      the Path decorated by a DiscoveredPath instance, or the same Path as that provided
@@ -79,6 +79,9 @@ public final class SwingCopyJob {
         }
         if ((destinationFolder == null) || (destinationFolder.getFileName().toString().isEmpty())) {
             throw new IllegalArgumentException("null reference passed for \"destinationFolder\" parameter");
+        }
+        if (Files.exists(destinationFolder) && (!Files.isDirectory(destinationFolder, LinkOption.NOFOLLOW_LINKS))) {
+            throw new IllegalArgumentException("the destination (target) path specified is not a folder");
         }
 
         // Convert paths to real paths
@@ -113,8 +116,8 @@ public final class SwingCopyJob {
                 }
             }
 
-            /* If a path to be copied is a file, throw an IllegalStateException if there is a pre-existing job that is
-               copying a file with the same name to the same destination folder */
+            /* Throw an IllegalStateException if there is another, ongoing copy job that is copying a file with the
+               same pathname to the same destination folder */
             if (jobToReturn == null) {
                 for (Path pathToCopy : realPaths) {
                     if (Files.isRegularFile(extractPath(pathToCopy), LinkOption.NOFOLLOW_LINKS)) {
@@ -123,7 +126,7 @@ public final class SwingCopyJob {
                                 if ((Files.isRegularFile(extractPath(path), LinkOption.NOFOLLOW_LINKS)) &&
                                         (path.getFileName().equals(pathToCopy.getFileName())) &&
                                         (swingCopyJob.destinationFolder.equals(destinationFolder))
-                                        ) {
+                                   ) {
                                     throw new IllegalStateException("Another copy job is writing to the specified destination folder");
                                 }
                             }

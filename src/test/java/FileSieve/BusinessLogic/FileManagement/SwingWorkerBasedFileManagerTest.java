@@ -27,10 +27,10 @@ public class SwingWorkerBasedFileManagerTest implements SwingCopyJobListener {
     private final SwingFileManager swingFileManager = FileManagerFactory.getSwingFileManager();
     private final String userTempFolder = System.getProperty("java.io.tmpdir");
     private final Path fileManagementTestFolder = new File(userTempFolder + "FileManagementTestFolder").toPath();
-    private final Set<Path> pathnames = new LinkedHashSet<Path>(30);
+    private final Set<Path> pathnames = new LinkedHashSet<>(30);
+    private final Object lockObject = new Object();
     private static boolean deletePathnameTestsPassed = false;
     private int pathsCopied = 0;
-    private Object lockObject = new Object();
 
     @Before
     public void setup() throws IOException {

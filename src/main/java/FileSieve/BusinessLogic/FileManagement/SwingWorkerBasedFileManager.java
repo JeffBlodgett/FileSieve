@@ -1,8 +1,6 @@
 package FileSieve.BusinessLogic.FileManagement;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
@@ -18,9 +16,9 @@ final class SwingWorkerBasedFileManager extends AbstractFileManager<SwingCopyJob
     private SwingCopyJobListener swingCopyJobListener;
 
     /**
-     * (Future functionality) for limiting the number of worker threads used by a copy job.
+     * Future functionality for limiting the number of worker threads used by a copy job.
      *
-     * @param workerThreadLimit
+     * @param workerThreadLimit     number of concurrent worker thread (file/folder copies) to be permitted per copy job
      */
     protected SwingWorkerBasedFileManager(int workerThreadLimit) {
         this.workerLimit = workerThreadLimit;
@@ -29,16 +27,21 @@ final class SwingWorkerBasedFileManager extends AbstractFileManager<SwingCopyJob
     /**
      * Copy's a list of source pathnames (folders and/or files) to a destination folder, with or without recursion
      *
-     * @param sourcePathnames           pathnames of folders and/or files to copy
-     * @param targetPathname            pathname of file or folder to create/write
-     * @param recursionEnabled          recursive search for and copying of files and subfolders within subfolders of the paths in the sourcePathnames list
-     * @param overwriteExistingFiles    indicates if files pre-existing files found in the target path should be
-     *                                  overwritten if the fileComparator determines that they are different than their
+     * @param sourcePathnames           list (Set<Path>) of pathnames of folders and/or files to copy
+     * @param targetPathname            pathname of folder into which to copy sourcePathnames items
+     * @param recursionEnabled          boolean value specifying if a recursive search for files/folders within subfolders of folders within the pathsToBeCopied list should be carried out
+     * @param overwriteExistingFiles    indicates if files pre-existing files found in the target path should be overwritten if the fileComparator determines that they are different than their
      *                                  source path equivalents
-     * @param fileComparator            compares two files for equality
-     * @return                          an instance of CopyJob for use in tracking and ascertaining the status of the
-     *                                  copy job
-     * @throws IOException              not thrown by this implementation
+     * @param fileComparator            Function object of type Comparator<Path> defining a compare method with which
+     *                                  to compare two files. The compare method should define what it means for two
+     *                                  regular files to be the same. If the method evaluates to 0 (equal) then the
+     *                                  file in the destination path will be overwritten only if the
+     *                                  overwriteExistingFiles parameter has been set to true. If an implementation
+     *                                  is not provided then the copy job will use a default implementation that defines
+     *                                  equality using the lowercase form of the file names and their uncompressed
+     *                                  length in bytes.
+     * @return                          an instance of SwingCopyJob for use in tracking and controlling the copy job
+     * @throws IOException              thrown if an IOException is encountered while converting source paths to real paths
      * @throws IllegalStateException    thrown by the CopyJob class's getCopyJob method if the destination folder is
      *                                  being written to by a dissimilar copy job
      */

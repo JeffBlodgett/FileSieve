@@ -61,16 +61,23 @@ public final class SwingCopyJob {
     }
 
     /**
-     * Static factory method for creating or retrieving a reference to an equivalent (and ongoing) SwingCopyJob.
+     * Static factory method for creating or retrieving a reference to an equivalent (ongoing) SwingCopyJob.
      *
-     * @param pathsToBeCopied           list of Path objects abstracting folders and/or files to copy
+     * @param pathsToBeCopied           a list of Path objects abstracting folders and/or files to copy
      * @param destinationFolder         destination folder to which file and folder copies are to be placed
-     * @param recursiveCopy             boolean value indicating whether or not folders should be search recursively for additional folders and files
-     * @param overwriteExistingFiles
-     * @param fileComparator
-     * @param swingCopyJobListener
-     * @return
-     * @throws IllegalStateException
+     * @param recursiveCopy             boolean value specifying if a recursive search for files/folders within subfolders of folders within the pathsToBeCopied list should be carried out
+     * @param overwriteExistingFiles    indicates if existing files in the target path should be overwritten if found to be similar to those currently being copied
+     * @param fileComparator            Function object of type Comparator<Path> defining a compare method with which
+     *                                  to compare two files. The compare method should define what it means for two
+     *                                  regular files to be the same. If the method evaluates to 0 (equal) then the
+     *                                  file in the destination path will be overwritten only if the
+     *                                  overwriteExistingFiles parameter has been set to true. If an implementation
+     *                                  is not provided then the copy job will use a default implementation that defines
+     *                                  equality using the lowercase form of the file names and their uncompressed
+     *                                  length in bytes.
+     * @param swingCopyJobListener      a reference to a CopyJobListener which is to receive copy job progress updates
+     * @return                          an instance of SwingCopyJob for use in tracking and controlling the copy job
+     * @throws IllegalStateException    thrown if the destination folder is being written to by a dissimilar copy job
      * @throws IOException              thrown if an IOException is encountered while converting source paths to real paths
      */
     protected static SwingCopyJob getCopyJob(Set<Path> pathsToBeCopied, Path destinationFolder, boolean recursiveCopy, boolean overwriteExistingFiles, Comparator<Path> fileComparator, SwingCopyJobListener swingCopyJobListener) throws IllegalStateException, IOException {
@@ -152,19 +159,20 @@ public final class SwingCopyJob {
     /**
      * Private constructor for use by enclosing class' static factory method.
      *
-     * @param pathsBeingCopied
-     * @param destinationFolder
-     * @param recursiveCopy
-     * @param overwriteExistingFiles    boolean true if the CopyJob
+     * @param pathsBeingCopied          list (Set<Path>) of pathnames of folders and/or files to copy
+     * @param destinationFolder         pathname of folder into which to copy sourcePathnames items
+     * @param recursiveCopy             boolean value specifying if a recursive search for files/folders within subfolders of folders within the pathsToBeCopied list should be carried out
+     * @param overwriteExistingFiles    indicates if files pre-existing files found in the target path should be overwritten if the fileComparator determines that they are different than their
+     *                                  source path equivalents
      * @param fileComparator            Function object of type Comparator<Path> defining a compare method with which
      *                                  to compare two files. The compare method should define what it means for two
      *                                  regular files to be the same. If the method evaluates to 0 (equal) then the
      *                                  file in the destination path will be overwritten only if the
      *                                  overwriteExistingFiles parameter has been set to true. If an implementation
-     *                                  is not provided, the CopyJob will use a default implementation that defines
+     *                                  is not provided then the copy job will use a default implementation that defines
      *                                  equality using the lowercase form of the file names and their uncompressed
      *                                  length in bytes.
-     * @param swingCopyJobListener
+     * @param swingCopyJobListener      a reference to a CopyJobListener which is to receive copy job progress updates
      */
     private SwingCopyJob(Set<Path> pathsBeingCopied, Path destinationFolder, boolean recursiveCopy, boolean overwriteExistingFiles, Comparator<Path> fileComparator, SwingCopyJobListener swingCopyJobListener) {
         this.pathsBeingCopied = pathsBeingCopied;
@@ -255,7 +263,7 @@ public final class SwingCopyJob {
     /**
      * Returns a list of the files and/or folders being copied.
      *
-     * @return  List<Path> representing the files and/or folders being copied
+     * @return  a copy of the list (List<Path>) of pathnames representing the files and/or folders being copied
      */
     public List<Path> getPathsBeingCopied() {
         List<Path> copiedList = new ArrayList<>(this.pathsBeingCopied.size());
@@ -639,7 +647,7 @@ public final class SwingCopyJob {
          * Private helper method, called by copyPaths method, for copying a single file (the sourcePathname)
          *
          * @param fileToCopy            file to copy, passed as a Path
-         * @param target                folder to which copy is to be placed
+         * @param target                folder within which copy is to be placed
          * @throws SecurityException    thrown if the security manager denies read access to the original file or write
          *                              access to the folder to contain the copy
          * @throws IOException          thrown if an IOException occurs during read/write operations

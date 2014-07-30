@@ -1,6 +1,7 @@
 package FileSieve.gui;
 
 import FileSieve.BusinessLogic.FileManagement.SwingCopyJob;
+import FileSieve.BusinessLogic.FileManagement.SwingCopyJobException;
 import FileSieve.BusinessLogic.FileManagement.SwingCopyJobListener;
 import java.io.File;
 import java.nio.file.Path;
@@ -89,19 +90,17 @@ public class CopyJobListener implements SwingCopyJobListener {
             }
         }
     }
-    
-    
+
     /**
      * Catches exception which might be thrown during the copy process and
      * displays error message to the user
-     * @param swingCopyJob          reference to a swingCopyJob that currently copies files
-     *                              could be several if multi-thread is enabled
-     * @param throwable             exception thrown during the copy operation
+     * @param swingCopyJob              reference to a swingCopyJob that currently copies files
+     *                                  could be several if multi-thread is enabled
+     * @param swingCopyJobException     exception thrown during the copy operation
      */
     @Override
-    public void InternalCopyJobException(SwingCopyJob swingCopyJob, Throwable throwable) {
-        JOptionPane.showMessageDialog(null, "Cannot copy file: "+throwable.getMessage(), 
-                                    "Can't proceed", JOptionPane.WARNING_MESSAGE);
+    public void JobFinished(SwingCopyJob swingCopyJob, SwingCopyJobException swingCopyJobException) {
+        JOptionPane.showMessageDialog(null, "Cannot copy file: " + swingCopyJobException.getMessage(), "Can't proceed", JOptionPane.WARNING_MESSAGE);
     }
     
     // Updates how many files and bytes have been copied
@@ -111,4 +110,5 @@ public class CopyJobListener implements SwingCopyJobListener {
         copyScreen.progressTxt.setText("Copied "+filesDone+" of "+totalFiles+" files ("+
                 bytesDoneStr+" of "+totalBytesStr+")");
     }
+
 }

@@ -44,7 +44,7 @@ public final class SwingCopyJob {
     private final Comparator<Path> fileComparator;
     private final AtomicBoolean backgroundThreadIsRunning = new AtomicBoolean(false);
     private final AtomicBoolean jobCancelled = new AtomicBoolean(false);
-    private Throwable internalWorkerException = null;
+    private SwingCopyJobException internalWorkerException = null;
 
     /**
      * Extracts the decorated (wrapped) Path from a DiscoveredPath instance.
@@ -307,11 +307,11 @@ public final class SwingCopyJob {
     /**
      * Blocks until the copy job has completed. This method rethrows internal exceptions that may have occurred
      * within the background thread. Such an exception may cause premature termination of the copy job.
+     * Warning: Calling this method from the EDT will result in a deadlock.
      *
-     * @throws InterruptedException
-     * @throws ExecutionException
+     * @throws SwingCopyJobException    thrown if an exception was thrown on the copy job's internal worker thread
      */
-    public void awaitCompletion() throws InterruptedException, ExecutionException {
+    public void awaitCompletion() throws SwingCopyJobException, InterruptedException {
         synchronized (lockObject) {
             while ((worker.getState() != SwingWorker.StateValue.DONE) || (backgroundThreadIsRunning.get())) {
                 lockObject.wait();
@@ -319,11 +319,7 @@ public final class SwingCopyJob {
         }
 
         if (internalWorkerException != null) {
-            if (internalWorkerException instanceof InterruptedException) {
-                throw (InterruptedException) internalWorkerException;
-            } else if (internalWorkerException instanceof ExecutionException) {
-                throw (ExecutionException) internalWorkerException;
-            }
+            throw internalWorkerException;
         }
     }
 
@@ -417,12 +413,12 @@ public final class SwingCopyJob {
                     try {
                         // This method blocks until the background thread (doInBackground() method)) has completed its work
                         get();
-                    } catch (CancellationException e) {
-                        // Background task was cancelled via cancel() method
                     } catch (InterruptedException | ExecutionException e) {
-                        internalWorkerException = e;
+                        // Note: a CancellationException should not occur here so we do not catch it
+
+                        internalWorkerException = new SwingCopyJobException(e);
                         for (SwingCopyJobListener listener : thisSwingCopyJob.swingCopyJobListeners) {
-                            listener.InternalCopyJobException(thisSwingCopyJob, e);
+                            listener.JobFinished(thisSwingCopyJob, internalWorkerException);
                         }
                     } finally {
                         for (SwingCopyJobListener listener : thisSwingCopyJob.swingCopyJobListeners) {
@@ -501,7 +497,10 @@ public final class SwingCopyJob {
                 if (!sourcePath.equals(thisSwingCopyJob.destinationFolder)) {
 
                     if (!Files.exists(extractPath(targetPath))) {
-                        targetPath.toFile().mkdirs();
+                        if (!targetPath.toFile().mkdirs()) {
+                            throw new IOException("Unable to create destination folder using File.mkdirs() method (boolean false returned)");
+                        }
+
                         if (targetPath.equals(thisSwingCopyJob.destinationFolder)) {
                             publish(new AbstractMap.SimpleImmutableEntry<>(targetPath, ZERO_PERCENT));
                         }
@@ -526,8 +525,10 @@ public final class SwingCopyJob {
                                             newTargetPath = targetPath.resolve(path.getFileName());
                                         }
 
-                                        if (!Files.exists(extractPath(newTargetPath))) {
-                                            newTargetPath.toFile().mkdir();
+                                        if (!extractPath(newTargetPath).toFile().exists()) {
+                                            if (!newTargetPath.toFile().mkdir()) {
+                                                throw new IOException("Unable to create \"" + newTargetPath + "\" folder using File.mkdir() method (boolean false returned)");
+                                            }
                                         }
 
                                         publish(new SimpleImmutableEntry<>(newTargetPath, PATHNAME_COPY_AT_100_PERCENT));
@@ -546,7 +547,9 @@ public final class SwingCopyJob {
                                             Path newTargetPath = targetPath.resolve(sourcePath.getFileName());
 
                                             if (!Files.exists(extractPath(newTargetPath))) {
-                                                newTargetPath.toFile().mkdir();
+                                                if (!newTargetPath.toFile().mkdir()) {
+                                                    throw new IOException("Unable to create \"" + newTargetPath + "\" folder using File.mkdir() method (boolean false returned)");
+                                                }
                                             }
 
                                             copyFile(path, newTargetPath);
@@ -567,7 +570,9 @@ public final class SwingCopyJob {
 
                                     if (!foldersCreatedInTarget.contains(sourceFolder)) {
                                         if (!Files.exists(pathToCreateInTargetFolder)) {
-                                            pathToCreateInTargetFolder.toFile().mkdir();
+                                            if (!pathToCreateInTargetFolder.toFile().mkdir()) {
+                                                throw new IOException("Unable to create \"" + pathToCreateInTargetFolder + "\" folder using File.mkdir() method (boolean false returned)");
+                                            }
                                         }
                                         foldersCreatedInTarget.add(sourceFolder);
                                     }
@@ -590,13 +595,17 @@ public final class SwingCopyJob {
                                 Path newPathToCreate = targetPath.resolve(pathToCreateInTargetFolder);
                                 if (!foldersCreatedInTarget.contains(pathToCreateInTargetFolder)) {
                                     if (!Files.exists(extractPath(newPathToCreate))) {
-                                        newPathToCreate.toFile().mkdir();
+                                        if (!newPathToCreate.toFile().mkdir()) {
+                                            throw new IOException("Unable to create \"" + newPathToCreate + "\" folder using File.mkdir() method (boolean false returned)");
+                                        }
                                     }
                                     foldersCreatedInTarget.add(pathToCreateInTargetFolder);
                                 }
                             } else {
                                 if (!Files.exists(targetPath.resolve(sourcePath.getFileName()))) {
-                                    targetPath.resolve(sourcePath.getFileName()).toFile().mkdir();
+                                    if (!targetPath.resolve(sourcePath.getFileName()).toFile().mkdir()) {
+                                        throw new IOException("Unable to create \"" + targetPath.resolve(sourcePath.getFileName()) + "\" folder using File.mkdir() method (boolean false returned)");
+                                    }
                                 }
                                 foldersCreatedInTarget.add(sourcePath.getFileName());
                             }
@@ -613,7 +622,9 @@ public final class SwingCopyJob {
 
                                 if (!foldersCreatedInTarget.contains(sourceFolder)) {
                                     if (!Files.exists(pathToCreateInTargetFolder)) {
-                                        pathToCreateInTargetFolder.toFile().mkdir();
+                                        if (!pathToCreateInTargetFolder.toFile().mkdir()) {
+                                            throw new IOException("Unable to create \"" + pathToCreateInTargetFolder + "\" folder using File.mkdir() method (boolean false returned)");
+                                        }
                                     }
                                     foldersCreatedInTarget.add(sourceFolder);
                                 }
@@ -644,12 +655,12 @@ public final class SwingCopyJob {
         }
 
         /**
-         * Private helper method, called by copyPaths method, for copying a single file (the sourcePathname)
+         * Private helper method, called by "copyPaths" method, for copying a single file
          *
-         * @param fileToCopy            file to copy, passed as a Path
+         * @param fileToCopy            file to copy, passed as a Path instance
          * @param target                folder within which copy is to be placed
-         * @throws SecurityException    thrown if the security manager denies read access to the original file or write
-         *                              access to the folder to contain the copy
+         * @throws SecurityException    thrown if the security manager denies read-access to the original file or
+         *                              write-access to the destination folder
          * @throws IOException          thrown if an IOException occurs during read/write operations
          */
         private void copyFile(Path fileToCopy, Path target) throws SecurityException, IOException {

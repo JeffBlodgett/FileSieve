@@ -3,10 +3,12 @@ package FileSieve.gui;
 import FileSieve.BusinessLogic.FileManagement.SwingCopyJob;
 import FileSieve.BusinessLogic.FileManagement.SwingCopyJobException;
 import FileSieve.BusinessLogic.FileManagement.SwingCopyJobListener;
+
+import java.awt.*;
 import java.io.File;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import javax.swing.JOptionPane;
+import javax.swing.*;
 
 /**
  * Listens to the progress of copying operation and updates the GUI
@@ -41,8 +43,9 @@ public class CopyJobListener implements SwingCopyJobListener {
 
     /**
      * Updates progress bar to display total percent of copy process for all files
-     * @param swingCopyJob          reference to a swingCopyJob that currently copies files
-     *                              could be several if multi-thread is enabled      
+     *
+     * @param swingCopyJob          reference to a swingCopyJob that currently copies files could be several
+     *                              if multi-thread is enabled
      * @param percentProgressed     how many percents have been copied
      */ 
     @Override
@@ -51,7 +54,7 @@ public class CopyJobListener implements SwingCopyJobListener {
         //to pass it to controller to stop the copy job - controller keeps track of its
         //own swingCopyJob instance
         copyScreen.totalProgressBar.setValue(percentProgressed);
-        if(percentProgressed == ONE_HUNDRED_PERCENT){
+        if (percentProgressed == ONE_HUNDRED_PERCENT){
             controller.stopCopyJob(false);
         }
     }
@@ -92,15 +95,18 @@ public class CopyJobListener implements SwingCopyJobListener {
     }
 
     /**
-     * Catches exception which might be thrown during the copy process and
-     * displays error message to the user
+     * Catches exception which might be thrown during the copy process and displays an error message to the user.
+     *
      * @param swingCopyJob              reference to a swingCopyJob that currently copies files
      *                                  could be several if multi-thread is enabled
-     * @param swingCopyJobException     exception thrown during the copy operation
+     * @param swingCopyJobException     exception thrown during the copy operation - will be null if no exceptions
+     *                                  are thrown
      */
     @Override
     public void JobFinished(SwingCopyJob swingCopyJob, SwingCopyJobException swingCopyJobException) {
-        JOptionPane.showMessageDialog(null, "Cannot copy file: " + swingCopyJobException.getMessage(), "Can't proceed", JOptionPane.WARNING_MESSAGE);
+        if (swingCopyJobException != null) {
+            JOptionPane.showMessageDialog(null, "Cannot copy file: " + swingCopyJobException.getMessage(), "Can't proceed", JOptionPane.WARNING_MESSAGE);
+        }
     }
     
     // Updates how many files and bytes have been copied

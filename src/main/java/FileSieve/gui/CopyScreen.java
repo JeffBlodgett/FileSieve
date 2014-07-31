@@ -42,15 +42,15 @@ public class CopyScreen extends JPanel{
 	progressTxt.setAlignmentX(Component.LEFT_ALIGNMENT);
 		
 	//Copy Files list
-        copyListModel = new DefaultListModel<>();
-        copyList = new JList<>(copyListModel);
+    copyListModel = new DefaultListModel<>();
+    copyList = new JList<>(copyListModel);
 		
 	//Scroll pane for copy files list
 	JScrollPane copyScrollPane = new JScrollPane();
 	copyScrollPane.setSize(200, 200);
 	copyScrollPane.setViewportView(copyList);
 	copyScrollPane.setAlignmentX(Component.LEFT_ALIGNMENT);
-		
+
 	//Buttons	
 	cancelBtn = new JButton("Cancel");
 	cancelBtn.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -77,23 +77,23 @@ public class CopyScreen extends JPanel{
 	totalProgressLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
 	totalProgressBar = new JProgressBar(0, 100);
 	totalProgressBar.setValue(0);
-        totalProgressBar.setStringPainted(true);
+    totalProgressBar.setStringPainted(true);
         
-        //add components to box layout
-        JPanel progressPane = new JPanel();
-        progressPane.setLayout(new BoxLayout(progressPane, BoxLayout.LINE_AXIS));
-        progressPane.add(totalProgressLabel);
-        progressPane.add(Box.createRigidArea(new Dimension(10,0)));
-        progressPane.add(totalProgressBar);
-        progressPane.setAlignmentX(Component.LEFT_ALIGNMENT);
-        progressPane.setBorder(BorderFactory.createEmptyBorder(10,0,10,0));
+    //add components to box layout
+    JPanel progressPane = new JPanel();
+    progressPane.setLayout(new BoxLayout(progressPane, BoxLayout.LINE_AXIS));
+    progressPane.add(totalProgressLabel);
+    progressPane.add(Box.createRigidArea(new Dimension(10,0)));
+    progressPane.add(totalProgressBar);
+    progressPane.setAlignmentX(Component.LEFT_ALIGNMENT);
+    progressPane.setBorder(BorderFactory.createEmptyBorder(10,0,10,0));
 		
 	//set box layout for source path components
-        JPanel copyPaneTxt = new JPanel();
-        copyPaneTxt.setLayout(new BoxLayout(copyPaneTxt, BoxLayout.LINE_AXIS));
-        copyPaneTxt.add(copyLabel);
-        copyPaneTxt.add(targetLabel);
-        copyPaneTxt.setAlignmentX(Component.LEFT_ALIGNMENT);
+    JPanel copyPaneTxt = new JPanel();
+    copyPaneTxt.setLayout(new BoxLayout(copyPaneTxt, BoxLayout.LINE_AXIS));
+    copyPaneTxt.add(copyLabel);
+    copyPaneTxt.add(targetLabel);
+    copyPaneTxt.setAlignmentX(Component.LEFT_ALIGNMENT);
         
 	JPanel copyPane = new JPanel();
 	copyPane.setLayout(new BoxLayout(copyPane, BoxLayout.PAGE_AXIS));

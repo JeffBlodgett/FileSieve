@@ -221,10 +221,10 @@ public class Controller {
         //add empty row to list
         copyScreen.copyListModel.addElement(" ");
         
-        if(interrupted){
+        if (interrupted) {
             //swingCopyJob is always null in tests, so allowing this code to run in test
             //will always through exception and there will be no way to test notifications
-            if(!isTest){
+            if (!isTest) {
                 if(swingCopyJob == null){
                     throw new NullPointerException("Copy job is not initialized - can't stop it");
                 }
@@ -235,9 +235,9 @@ public class Controller {
             copyScreen.copyListModel.addElement("All files are copied! Hooray!");
         }
         //scroll to the bottom of the list as the items are added
-        copyScreen.copyList.ensureIndexIsVisible(copyScreen.copyListModel.getSize()-1);
+        copyScreen.copyList.ensureIndexIsVisible(copyScreen.copyListModel.getSize() - 1);
         
-        //reset buttons active state
+        //reset button's active state
         copyScreen.newSearchBtn.setEnabled(true);
         copyScreen.cancelBtn.setEnabled(false);
         

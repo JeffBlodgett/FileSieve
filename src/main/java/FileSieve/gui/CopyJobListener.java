@@ -69,18 +69,19 @@ public class CopyJobListener implements SwingCopyJobListener {
     @Override
     public void UpdatePathnameCopyProgress(SwingCopyJob swingCopyJob, Path pathnameBeingCopied, int percentProgressed) {
         File fileBeingCopied = pathnameBeingCopied.toFile();
-        
+
         //show progress only for files, not for directories
-        if(fileBeingCopied.isFile()){
-            String fileProgress = "Creating "+pathnameBeingCopied.toString()+" ("+percentProgressed+"%)";
-            int fileIndex = copiedFiles.indexOf((Object) fileBeingCopied);
+        int fileIndex = copiedFiles.indexOf((Object) fileBeingCopied);
+        if (fileBeingCopied.isFile() || (fileIndex != -1)) {
+            String fileProgress = "Creating " + pathnameBeingCopied.toString() + " (" + percentProgressed + "%)";
 
             //check if file is already in the list
             //if not - then add it, otherwise - update it
-            if(fileIndex != -1){
+            if (fileIndex != -1) {
                 copyScreen.copyListModel.set(fileIndex, fileProgress);
-                //when file is copied update the correponding text in GUI
-                if(percentProgressed == ONE_HUNDRED_PERCENT){
+                //System.err.println(pathnameBeingCopied.getFileName() + ": " + fileIndex + "- " + percentProgressed + "%");
+                //when file is copied update the corresponding text in GUI
+                if (percentProgressed == ONE_HUNDRED_PERCENT) {
                     bytesDone += copiedFiles.get(fileIndex).length();
                     filesDone++;
                     updateTotalProgress();

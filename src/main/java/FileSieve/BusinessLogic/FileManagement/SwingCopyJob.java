@@ -340,7 +340,6 @@ public final class SwingCopyJob {
         private int totalPercentCopied = 0;
         private int copyPathsRecursionLevel = 0;
         private List<Path> foldersCreatedInTarget = new ArrayList<>();
-        private FileEnumerator fileEnumerator = FileEnumeratorFactory.getFileEnumerator();
 
         /**
          * Constructor for the BackgroundCopyWorker class
@@ -687,7 +686,6 @@ public final class SwingCopyJob {
                 long soFar = 0L;    // file bytes copied thus far
                 int sourceByte;
                 int filePercentCopied = ZERO_PERCENT;
-                int totalPercentPreviouslyCopied = totalPercentCopied;
                 int pathnameProgress = ZERO_PERCENT;
 
                 try (
@@ -719,15 +717,22 @@ public final class SwingCopyJob {
                     // Delete file fragment
                     if (jobCancelled.get() && (filePercentCopied < ONE_HUNDRED_PERCENT)) {
                         bos.close();
-                        Files.deleteIfExists(target);
 
-                        // Backtrack... set+publish the total job progress to the value had prior to this attempted
-                        // file-copy and set+publish the progress for the failed copy to/as 0 percent
-                        //int progress = (int) ((totalPercentPreviouslyCopied + fileBytes) * ONE_HUNDRED_PERCENT / totalBytes);
-                        int progress = (int) (totalPercentPreviouslyCopied * ONE_HUNDRED_PERCENT / totalBytes);
-                        setProgress(progress);
-                        publish(new SimpleImmutableEntry<>(thisSwingCopyJob.destinationFolder, progress));
-                        publish(new SimpleImmutableEntry<>(target, ZERO_PERCENT));
+                        if (!target.toFile().delete()) {
+                            throw new IOException("Unable to delete incomplete file fragment \"" + target.toString() + "\" following job cancellation");
+                        }
+
+                        /* Backtrack... set+publish the total job progress to the value had prior to this attempted
+                           file-copy and set+publish the progress for the failed copy to/as 0 percent */
+                        if (soFar >0) {
+                            copiedBytes -= soFar;
+                            publish(new SimpleImmutableEntry<>(target, ZERO_PERCENT));
+                        }
+                        totalPercentCopied = (int) (copiedBytes * ONE_HUNDRED_PERCENT / totalBytes);
+                        if ((getProgress() != totalPercentCopied) && (totalPercentCopied < ONE_HUNDRED_PERCENT)) {
+                            setProgress(totalPercentCopied);
+                            publish(new SimpleImmutableEntry<>(thisSwingCopyJob.destinationFolder, totalPercentCopied));
+                        }
                     } else {
                         // No need to set "pathnameProgress" variable to 100... publish completion of the file copy and move on
                         publish(new SimpleImmutableEntry<>(target, PATHNAME_COPY_AT_100_PERCENT));
@@ -736,15 +741,21 @@ public final class SwingCopyJob {
                 } catch (IOException e) {
                     // Backtrack... set+publish the total job progress to the value had prior to this attempted file
                     // copy and set+publish the progress for the failed copy to/as 0 percent
-                    //int progress = (int) ((totalPercentPreviouslyCopied + fileBytes) * ONE_HUNDRED_PERCENT / totalBytes);
-                    int progress = (int) (totalPercentPreviouslyCopied * ONE_HUNDRED_PERCENT / totalBytes);
-                    setProgress(progress);
-                    publish(new SimpleImmutableEntry<>(thisSwingCopyJob.destinationFolder, progress));
-                    publish(new SimpleImmutableEntry<>(target, ZERO_PERCENT));
+                    if (soFar > 0) {
+                        copiedBytes -= soFar;
+                        publish(new SimpleImmutableEntry<>(target, ZERO_PERCENT));
+                    }
+                    totalPercentCopied = (int) (copiedBytes * ONE_HUNDRED_PERCENT / totalBytes);
+                    if ((getProgress() != totalPercentCopied) && (totalPercentCopied < ONE_HUNDRED_PERCENT)) {
+                        setProgress(totalPercentCopied);
+                        publish(new SimpleImmutableEntry<>(thisSwingCopyJob.destinationFolder, totalPercentCopied));
+                    }
 
                     try {
                         if ((target.toFile().exists()) && ((target.toFile().length() == 0L) || (soFar > 0L))) {
-                            Files.delete(target);
+                            if (!target.toFile().delete()) {
+                                throw new IOException("An IOException occurred while copying file \"" + fileToCopy.toString() + "\". An incomplete copy was left in the destination folder.", e);
+                            }
                             throw new IOException("An IOException occurred while copying file \"" + fileToCopy.toString() + "\". An incomplete copy was not left in the destination folder.", e);
                         } else {
                             throw new IOException("An IOException occurred while copying file \"" + fileToCopy.toString() + "\".", e);
@@ -754,8 +765,8 @@ public final class SwingCopyJob {
                     }
                 }
             } else {
-                //totalPercentCopied = (int) (++fileBytes * ONE_HUNDRED_PERCENT / totalBytes);
-                totalPercentCopied = (int) ((totalPercentCopied + fileBytes) * ONE_HUNDRED_PERCENT / totalBytes);
+                copiedBytes += fileBytes;
+                totalPercentCopied = (int) (copiedBytes * ONE_HUNDRED_PERCENT / totalBytes);
                 if ((getProgress() != totalPercentCopied) && (totalPercentCopied < ONE_HUNDRED_PERCENT)) {
                     setProgress(totalPercentCopied);
                     publish(new SimpleImmutableEntry<>(thisSwingCopyJob.destinationFolder, totalPercentCopied));

@@ -186,8 +186,8 @@ class FileDiscoverer implements FileEnumerator {
                                     try {
                                         pathMap.putAll(getPathnames(path, true));
 
-                                    /* Rethrow IOException and decrement the recursionLevel counter. This
-                                       try-finally block maintains a valid state for the recursionLevel counter */
+                                    /* Decrement the recursionLevel counter. This try-finally block maintains a valid
+                                       state for the recursionLevel counter if an IOException is thrown */
                                     } finally {
                                         --recursionLevel;
                                     }

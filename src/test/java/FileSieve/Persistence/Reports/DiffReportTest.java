@@ -1,11 +1,17 @@
 package FileSieve.Persistence.Reports;
 
+import FileSieve.BusinessLogic.FileManagement.FileManagerFactory;
+import FileSieve.BusinessLogic.FileManagement.SwingFileManager;
 import org.junit.After;
+import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Test;
 import static org.junit.Assert.*;
 
 import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.List;
@@ -15,32 +21,33 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 
-
-
 public class DiffReportTest {
+
+    private SwingFileManager swingFileManager = FileManagerFactory.getSwingFileManager();
     private DiffReport report;
     private List<AbstractMap.SimpleImmutableEntry<String, List<File>>> diffResults;
     private List<String> deletedPaths;
     private String fileName;
-    private String baseDir;
-    private String systemFileSeparator;
+    private String diffReportTestFolder;
     private File match1;
     private File match2;
     private String outputFilePath;
 
     @Before
     public void setup() throws Exception {
-        baseDir = System.getProperty("user.dir");
-        systemFileSeparator = System.getProperty("file.separator");
-        outputFilePath = baseDir + systemFileSeparator + "test.html";
+        diffReportTestFolder = System.getProperty("java.io.tmpdir") + "/FileSieveDiffReportTestDir";
+
+        Assume.assumeTrue("temporary folder used for tests should not pre-exist", !(new File(diffReportTestFolder).exists()));
+        new File(diffReportTestFolder).mkdir();
+
+        outputFilePath = diffReportTestFolder + "/test.html";
         fileName = "test.txt";
-        match1 = new File(baseDir + systemFileSeparator + "test.txt");
-        match2 = new File(baseDir + systemFileSeparator + "test2.txt");
+        match1 = new File(diffReportTestFolder + "/test.txt");
+        match2 = new File(diffReportTestFolder + "/test2.txt");
         List<File> matchList = new ArrayList<>();
         matchList.add(match1);
         matchList.add(match2);
-        AbstractMap.SimpleImmutableEntry<String, List<File>> matchEntry
-                  = new AbstractMap.SimpleImmutableEntry<>(fileName, matchList);
+        AbstractMap.SimpleImmutableEntry<String, List<File>> matchEntry = new AbstractMap.SimpleImmutableEntry<>(fileName, matchList);
 
         diffResults = new ArrayList<>();
         diffResults.add(matchEntry);
@@ -50,17 +57,12 @@ public class DiffReportTest {
     }
 
     @After
-    public void cleanup() throws Exception {
-        try {
-            File output = new File(outputFilePath);
-            output.delete();
-        } catch (Exception x) {
-            System.err.println(x);
-        }
+    public void cleanup() throws IOException {
+        swingFileManager.deletePathname(new File(diffReportTestFolder).toPath());
     }
 
     @Test
-    public void testGetReport() throws Exception {
+    public void testGetReport() throws IOException {
         report = DiffReportFactory.getDiffReport(diffResults);
         String results = report.getReport();
 
@@ -78,17 +80,27 @@ public class DiffReportTest {
     }
 
     @Test
-    public void testSave() throws Exception {
+    public void testSave() throws IOException {
         report = DiffReportFactory.getDiffReport(diffResults, deletedPaths);
         String results = report.getReport();
 
-        report.save(baseDir + systemFileSeparator + "test.html");
+        report.save(diffReportTestFolder + "/test.html");
 
         File outputFile = new File(outputFilePath);
         assertTrue(outputFile.exists());
 
-        String output = new Scanner(outputFile).useDelimiter("\\Z").next();
+        Scanner scanner = null;
+        String output = "";
+        try {
+            scanner = new Scanner(outputFile);
+            output = scanner.useDelimiter("\\Z").next();
+        } finally {
+            if (scanner != null) {
+                scanner.close();
+            }
+        }
 
         assertEquals("Save result should match the string result.", results, output);
     }
+
 }

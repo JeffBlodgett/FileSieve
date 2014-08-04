@@ -34,10 +34,10 @@ class DuplicateFileFinder implements FileDifferentiator, FileHashCalculator {
 
         // HashMap to be used internally in determining if a file has a duplicate. The keys for this Map are hash codes
         // generated for the pathnames
-        Map<Integer, Path> hashMap = new HashMap<Integer, Path>(pathnames.size());
+        Map<Integer, Path> hashMap = new HashMap<>(pathnames.size());
 
         // HashMap to be used internally in accumulating duplicates
-        Map<Integer, List<Path>> duplicates = new HashMap<Integer, List<Path>>(pathnames.size() / 2);
+        Map<Integer, List<Path>> duplicates = new HashMap<>(pathnames.size() / 2);
 
         synchronized(pathnames) {
             for (Path path : pathnames.keySet()) {
@@ -54,7 +54,7 @@ class DuplicateFileFinder implements FileDifferentiator, FileHashCalculator {
 
                     if (hashMap.containsKey(hash)) {
                         if (!duplicates.containsKey(hash)) {
-                            List<Path> newList = new ArrayList<Path>(4);
+                            List<Path> newList = new ArrayList<>(4);
                             newList.add(hashMap.get(hash));
                             newList.add(key);
                             duplicates.put(hash, newList);
@@ -93,7 +93,7 @@ class DuplicateFileFinder implements FileDifferentiator, FileHashCalculator {
 
     /**
      * Default implementation for calculating a hash code for a file from attributes of its Path and BasicFileAttributes
-     * objects. This implementation factors in only the name and byte length of a file, the latter coming from the
+     * objects. This implementation factors only the name and byte length of a file, the latter coming from the
      * passed BasicFileAttributes for the file.
      *
      * @param path                  Path object for which to generate a hash code

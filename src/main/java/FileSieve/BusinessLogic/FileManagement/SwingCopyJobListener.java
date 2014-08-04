@@ -29,12 +29,13 @@ public interface SwingCopyJobListener {
     public void UpdatePathnameCopyProgress(SwingCopyJob swingCopyJob, Path pathnameBeingCopied, int percentProgressed);
 
     /**
-     * Called by SwingCopyJob instances, for which this listener is registered, when the SwingCopyJob has
-     * encountered an internal error on its worker thread and halted prematurely.
+     * Called by SwingCopyJob instances for which this listener is registered when a SwingCopyJob has exited.
      *
      * @param swingCopyJob          reference to the SwingCopyJob from which the update is coming
-     * @param throwable             reference to the exception detected on the SwingCopyJob instance's worker thread
+     * @param exception             reference to a SwingCopyJobException, passed if an internal error on the job's
+     *                              worker thread caused it to halt prematurely
+     * prematurely
      */
-    public void InternalCopyJobException(SwingCopyJob swingCopyJob, Throwable throwable);
+    public void JobFinished(SwingCopyJob swingCopyJob, SwingCopyJobException exception); // InternalCopyJobException
 
 } // interface SwingCopyJobListener

@@ -18,13 +18,19 @@ public interface SwingFileManager extends FileOpener, FileDeleter, FileCopier<Sw
      * Method for copying one or more folders or files to a target folder. The method returns (and starts execution of)
      * an instance of a SwingCopyJob that handles the copy operation on a background thread using a SwingWorker.
      *
-     * @param sourcePathnames           pathnames of folders and/or files to copy
+     * @param sourcePathnames           list (Set<Path>) of pathnames of folders and/or files to copy
      * @param targetPathname            pathname of folder into which to copy sourcePathnames items
-     * @param recursionEnabled          boolean value specifying if a recursive search for files/folders within subfolders of the sourcePathnames items should be carried out
+     * @param recursionEnabled          boolean value specifying if a recursive search for files/folders within subfolders of folders within the pathsToBeCopied list should be carried out
      * @param overwriteExistingFiles    indicates if existing files in the target path should be overwritten if found to be similar to those currently being copied
-     * @param fileComparator            Function object to be used in determining if two files are similar/dissimilar. If dissimilar, the file in the destination path is
-     *                                  overwritten depending on the value of the overwriteExistingFiles parameter
-     * @return                          an instance of a SwingCopyJob
+     * @param fileComparator            Function object of type Comparator<Path> defining a compare method with which
+     *                                  to compare two files. The compare method should define what it means for two
+     *                                  regular files to be the same. If the method evaluates to 0 (equal) then the
+     *                                  file in the destination path will be overwritten only if the
+     *                                  overwriteExistingFiles parameter has been set to true. If an implementation
+     *                                  is not provided then the copy job will use a default implementation that defines
+     *                                  equality using the lowercase form of the file names and their uncompressed
+     *                                  length in bytes.
+     * @return                          an instance of SwingCopyJob for use in tracking and controlling the copy job
      * @throws java.io.IOException      thrown if attempted access of a path in sourcePathnames generates an IOException
      */
     public SwingCopyJob copyPathnames(Set<Path> sourcePathnames, Path targetPathname, boolean recursionEnabled, boolean overwriteExistingFiles, Comparator<Path> fileComparator) throws IOException, IllegalStateException;
@@ -39,9 +45,15 @@ public interface SwingFileManager extends FileOpener, FileDeleter, FileCopier<Sw
      * @param targetPathname            pathname of folder into which to copy sourcePathnames items
      * @param recursionEnabled          boolean value specifying if a recursive search for files/folders within subfolders of the sourcePathnames items should be carried out
      * @param overwriteExistingFiles    indicates if existing files in the target path should be overwritten if found to be similar to those currently being copied
-     * @param fileComparator            Function object to be used in determining if two files are similar/dissimilar. If dissimilar, the file in the destination path is
-     *                                  overwritten depending on the value of the overwriteExistingFiles parameter
-     * @return                          an instance of a SwingCopyJob
+     * @param fileComparator            Function object of type Comparator<Path> defining a compare method with which
+     *                                  to compare two files. The compare method should define what it means for two
+     *                                  regular files to be the same. If the method evaluates to 0 (equal) then the
+     *                                  file in the destination path will be overwritten only if the
+     *                                  overwriteExistingFiles parameter has been set to true. If an implementation
+     *                                  is not provided then the copy job will use a default implementation that defines
+     *                                  equality using the lowercase form of the file names and their uncompressed
+     *                                  length in bytes.
+     * @return                          an instance of SwingCopyJob for use in tracking and controlling the copy job
      * @throws IOException              thrown if attempted access of a path in sourcePathnames generates an IOException
      * @throws IllegalStateException    thrown if there is another, ongoing copy job that is copying a file with the same pathname to the same destination folder
      */

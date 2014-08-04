@@ -27,10 +27,10 @@ public class SwingWorkerBasedFileManagerTest implements SwingCopyJobListener {
     private final SwingFileManager swingFileManager = FileManagerFactory.getSwingFileManager();
     private final String userTempFolder = System.getProperty("java.io.tmpdir");
     private final Path fileManagementTestFolder = new File(userTempFolder + "FileManagementTestFolder").toPath();
-    private final Set<Path> pathnames = new LinkedHashSet<Path>(30);
+    private final Set<Path> pathnames = new LinkedHashSet<>(30);
+    private final Object lockObject = new Object();
     private static boolean deletePathnameTestsPassed = false;
     private int pathsCopied = 0;
-    private Object lockObject = new Object();
 
     @Before
     public void setup() throws IOException {
@@ -94,7 +94,7 @@ public class SwingWorkerBasedFileManagerTest implements SwingCopyJobListener {
     }
 
     @Test
-    public void testCopyPathname_SingleFile() throws IOException {
+    public void testCopyPathname_SingleFile() throws IOException, InterruptedException {
         if (!deletePathnameTestsPassed) {
             Assert.fail("testing of copyPathname method depends on deletePathname testing, one or assertions for which failed");
         }
@@ -114,11 +114,8 @@ public class SwingWorkerBasedFileManagerTest implements SwingCopyJobListener {
                 Path fileForWhichToCheckExistence = targetFolder.resolve(fileToCopy.getFileName());
                 Assert.assertTrue("copying of a file to a new folder, copy of file exists in targetPathname", Files.isRegularFile(fileForWhichToCheckExistence, LinkOption.NOFOLLOW_LINKS));
 
-            } catch (InterruptedException e) {
-                Assert.fail("InterruptedException during BackgroundCopyWorker execution, copying of a file to a new folder");
-
-            } catch (ExecutionException e) {
-                Assert.fail(e.getCause().getClass().getSimpleName() + " during BackgroundCopyWorker execution, copying of a file to a new folder: Message: " + e.getCause().getMessage());
+            } catch (SwingCopyJobException e) {
+                Assert.fail(e.getCause().getClass().getSimpleName() + " during BackgroundCopyWorker execution, copying of a file to a new folder. Message: " + e.getCause().getMessage());
 
             } finally {
                 if (!swingFileManager.deletePathname(targetFolder)) {
@@ -133,7 +130,7 @@ public class SwingWorkerBasedFileManagerTest implements SwingCopyJobListener {
     }
 
     @Test
-    public void testCopyPathname_SingleFolder_NoRecursion() throws IOException {
+    public void testCopyPathname_SingleFolder_NoRecursion() throws IOException, InterruptedException {
         if (!deletePathnameTestsPassed) {
             Assert.fail("testing of copyPathname method depends on deletePathname testing, one or assertions for which failed");
         }
@@ -153,11 +150,8 @@ public class SwingWorkerBasedFileManagerTest implements SwingCopyJobListener {
                 Path aFolderForWhichToCheckExistence = targetFolder.resolve(folderToCopy.getFileName());
                 Assert.assertTrue("non-recursive copying of a folder, created folder in the target folder", Files.isDirectory(aFolderForWhichToCheckExistence, LinkOption.NOFOLLOW_LINKS));
 
-            } catch (InterruptedException e) {
-                Assert.fail("InterruptedException during BackgroundCopyWorker execution, non-recursive copying of a folder");
-
-            } catch (ExecutionException e) {
-                Assert.fail(e.getCause().getClass().getSimpleName() + " during BackgroundCopyWorker execution, non-recursive copying of a folder. Message: " + e.getCause().getMessage());
+            } catch (SwingCopyJobException e) {
+                Assert.fail(e.getCause().getClass().getSimpleName() + " occurred during BackgroundCopyWorker execution, non-recursive copying of a folder. Message: " + e.getCause().getMessage());
 
             } finally {
                 if (!swingFileManager.deletePathname(targetFolder)) {
@@ -172,7 +166,7 @@ public class SwingWorkerBasedFileManagerTest implements SwingCopyJobListener {
     }
 
     @Test
-    public void testCopyPathname_SingleFolder_WithRecursion() throws IOException {
+    public void testCopyPathname_SingleFolder_WithRecursion() throws IOException, InterruptedException {
         if (!deletePathnameTestsPassed) {
             Assert.fail("testing of copyPathname method depends on deletePathname testing, one or assertions for which failed");
         }
@@ -195,11 +189,8 @@ public class SwingWorkerBasedFileManagerTest implements SwingCopyJobListener {
                 Path aFolderForWhichToCheckExistence = targetFolder.resolve(folderToCopy.getFileName().resolve("folder2/folder2SubFolder2"));
                 Assert.assertTrue("recursive copying of a folder created a folder within a subfolder of the target folder", Files.isDirectory(aFolderForWhichToCheckExistence));
 
-            } catch (InterruptedException e) {
-                Assert.fail("InterruptedException during BackgroundCopyWorker execution, recursive copying of a folder");
-
-            } catch (ExecutionException e) {
-                Assert.fail(e.getCause().getClass().getSimpleName() + " during BackgroundCopyWorker execution, recursive copying of a folder. Message: " + e.getCause().getMessage());
+            } catch (SwingCopyJobException e) {
+                Assert.fail(e.getCause().getClass().getSimpleName() + " occurred during BackgroundCopyWorker execution, recursive copying of a folder. Message: " + e.getCause().getMessage());
 
             } finally {
                 if (!swingFileManager.deletePathname(targetFolder)) {
@@ -214,7 +205,7 @@ public class SwingWorkerBasedFileManagerTest implements SwingCopyJobListener {
     }
 
     @Test
-    public void testCopyPathname_SingleFolder_WithRecursion_TwoConcurrentJobs() throws IOException, InterruptedException, ExecutionException {
+    public void testCopyPathname_SingleFolder_WithRecursion_TwoConcurrentJobs() throws IOException, InterruptedException {
         if (!deletePathnameTestsPassed) {
             Assert.fail("testing of copyPathname method depends on deletePathname testing, one or assertions for which failed");
         }
@@ -255,11 +246,8 @@ public class SwingWorkerBasedFileManagerTest implements SwingCopyJobListener {
                 Path job2aFolderForWhichToCheckExistence = targetFolder2.resolve(folderToCopy.getFileName().resolve("folder2/folder2SubFolder2"));
                 Assert.assertTrue("recursive copying of a folder, second job created a folder within a subfolder of its target folder", Files.isDirectory(job2aFolderForWhichToCheckExistence));
 
-                        } catch (InterruptedException e) {
-                Assert.fail("InterruptedException in job #" + jobThatEncounteredException + " during BackgroundCopyWorker execution, recursive copying of a folder");
-
-            } catch (ExecutionException e) {
-                Assert.fail(e.getCause().getClass().getSimpleName() + " during BackgroundCopyWorker execution in job #" + jobThatEncounteredException + ", recursive copying of a folder. Message: " + e.getCause().getMessage());
+            } catch (SwingCopyJobException e) {
+                Assert.fail(e.getCause().getClass().getSimpleName() + " occurred during BackgroundCopyWorker execution in job #\"" + jobThatEncounteredException + "\", recursive copying of a folder. Message: " + e.getCause().getMessage());
 
             } finally {
                 if (!swingFileManager.deletePathname(targetFolder)) {
@@ -273,14 +261,22 @@ public class SwingWorkerBasedFileManagerTest implements SwingCopyJobListener {
         } else {
             if ((swingCopyJob1 != null) && (swingCopyJob1.isRunning())) {
                 swingCopyJob1.cancelJob();
-                swingCopyJob1.awaitCompletion();
+                try {
+                    swingCopyJob1.awaitCompletion();
+                } catch (SwingCopyJobException e) {
+                    Assert.fail(e.getCause().getClass().getSimpleName() + " occurred during attempting cancellation of copy job #1, recursive copying of a folder. Message: " + e.getCause().getMessage());
+                }
             }
             if ((swingCopyJob2 != null) && (swingCopyJob2.isRunning())) {
                 swingCopyJob2.cancelJob();
-                swingCopyJob2.awaitCompletion();
+                try {
+                    swingCopyJob2.awaitCompletion();
+                } catch (SwingCopyJobException e) {
+                    Assert.fail(e.getCause().getClass().getSimpleName() + " occurred during attempting cancellation of copy job #2, recursive copying of a folder. Message: " + e.getCause().getMessage());
+                }
             }
 
-            Assert.fail("Unable to create or retrieve a SwingCopyJob instance");
+            Assert.fail("Unable to create or retrieve SwingCopyJob instance number 1 and/or 2.");
         }
 
         Assert.assertEquals("tracked copy jobs have been been removed from SwingCopyJob class' internal map", 0, SwingCopyJob.swingCopyJobs.size());
@@ -304,32 +300,39 @@ public class SwingWorkerBasedFileManagerTest implements SwingCopyJobListener {
         try {
             Assert.assertTrue("The two job references are the same", swingCopyJob1 == swingCopyJob2);
 
-            if ((swingCopyJob1 != null) && (swingCopyJob1.isRunning())) {
-                swingCopyJob1.cancelJob();
-                swingCopyJob1.awaitCompletion();
-            }
-        } catch (InterruptedException e) {
-            Assert.fail("InterruptedException during BackgroundCopyWorker execution, request for two similar jobs. Messae: " + e.getMessage());
-
-        } catch (ExecutionException e) {
-            Assert.fail(e.getCause().getClass().getSimpleName() + " during BackgroundCopyWorker execution, request for two similar jobs. Message: " + e.getCause().getMessage());
-
         } finally {
+
             try {
-                if ((swingCopyJob2 != null) && (swingCopyJob2 != swingCopyJob1) && (swingCopyJob2.isRunning())) {
-                    swingCopyJob2.cancelJob();
-                    swingCopyJob2.awaitCompletion();
+                if ((swingCopyJob1 != null) && (swingCopyJob1.isRunning())) {
+                    swingCopyJob1.cancelJob();
+                    swingCopyJob1.awaitCompletion();
                 }
+
+            } catch (SwingCopyJobException e) {
+                Assert.fail(e.getCause().getClass().getSimpleName() + " occurred during BackgroundCopyWorker execution, request for two similar jobs - cancellation of job #1. Message: " + e.getCause().getMessage());
+
             } finally {
-                swingFileManager.deletePathname(targetFolder);
+
+                try {
+                    if ((swingCopyJob2 != null) && (swingCopyJob2 != swingCopyJob1) && (swingCopyJob2.isRunning())) {
+                        swingCopyJob2.cancelJob();
+                        swingCopyJob2.awaitCompletion();
+                    }
+                }  catch (SwingCopyJobException e) {
+                    Assert.fail(e.getCause().getClass().getSimpleName() + " occurred during BackgroundCopyWorker execution, request for two similar jobs - cancellation of job #2. Message: " + e.getCause().getMessage());
+                } finally {
+                    swingFileManager.deletePathname(targetFolder);
+                }
+
             }
+
         }
 
         Assert.assertEquals("tracked copy jobs have been been removed from SwingCopyJob class' internal map", 0, SwingCopyJob.swingCopyJobs.size());
     }
 
     @Test
-    public void testCopyPathnames_MultipleFoldersAndFiles_WithRecursion() throws IOException {
+    public void testCopyPathnames_MultipleFoldersAndFiles_WithRecursion() throws IOException, InterruptedException {
         if (!deletePathnameTestsPassed) {
             Assert.fail("testing of copyPathname method depends on deletePathname testing, one or assertions for which failed");
         }
@@ -350,19 +353,17 @@ public class SwingWorkerBasedFileManagerTest implements SwingCopyJobListener {
                 // exceptions that occur on internal SwingWorker's background thread are rethrown by this method
                 swingCopyJob.awaitCompletion();
 
-                Assert.assertEquals("recursive copying of a folder created 30 files/folders in target folder", 30, getChildCount(targetFolder));
+                Assert.assertEquals("recursive copying of multiple source folders/files created 30 files/folders in target folder", 30, getChildCount(targetFolder));
 
                 Path aFileForWhichToCheckExistence = targetFolder.resolve("sourceFolder1/folder2/folder2File1.dat");
-                Assert.assertTrue("recursive copying of a folder, copied a file into the target folder", Files.isRegularFile(targetFolder.resolve(aFileForWhichToCheckExistence), LinkOption.NOFOLLOW_LINKS));
+                Assert.assertTrue("recursive copying of a multiple source folders/files copied a file into the target folder", Files.isRegularFile(targetFolder.resolve(aFileForWhichToCheckExistence), LinkOption.NOFOLLOW_LINKS));
 
                 Path aFolderForWhichToCheckExistence = targetFolder.resolve("sourceFolder1/folder2/folder2SubFolder2");
-                Assert.assertTrue("recursive copying of a folder created a folder within a subfolder of the target folder", Files.isDirectory(aFolderForWhichToCheckExistence));
+                Assert.assertTrue("recursive copying of multiple source folders/files created a folder within a subfolder of the target folder", Files.isDirectory(aFolderForWhichToCheckExistence));
 
-            } catch (InterruptedException e) {
-                Assert.fail("InterruptedException during BackgroundCopyWorker execution, recursive copying of a folder");
+            } catch (SwingCopyJobException e) {
+                Assert.fail(e.getCause().getClass().getSimpleName() + " occurred during BackgroundCopyWorker execution, recursive copying of a multiple source folders/files. Message: " + e.getCause().getMessage());
 
-            } catch (ExecutionException e) {
-                Assert.fail(e.getCause().getClass().getSimpleName() + " during BackgroundCopyWorker execution, recursive copying of a folder. Message: " + e.getCause().getMessage());
             }
         } else {
             Assert.fail("Unable to create or retrieve a SwingCopyJob instance");
@@ -383,21 +384,18 @@ public class SwingWorkerBasedFileManagerTest implements SwingCopyJobListener {
                 // exceptions that occur on internal SwingWorker's background thread are rethrown by this method
                 swingCopyJob.awaitCompletion();
 
-                Assert.assertEquals("recursive copying of a folder created 30 files/folders in target folder", 30, getChildCount(targetFolder));
+                Assert.assertEquals("recursive copying of multiple source folders/files created 30 files/folders in target folder", 30, getChildCount(targetFolder));
 
                 Path aFileForWhichToCheckExistence = targetFolder.resolve("sourceFolder1/folder2/folder2File1.dat");
-                Assert.assertTrue("recursive copying of a folder, copied a file into the target folder", Files.isRegularFile(targetFolder.resolve(aFileForWhichToCheckExistence), LinkOption.NOFOLLOW_LINKS));
+                Assert.assertTrue("recursive copying of a multiple source folders/files copied a file into the target folder", Files.isRegularFile(targetFolder.resolve(aFileForWhichToCheckExistence), LinkOption.NOFOLLOW_LINKS));
 
                 Path aFolderForWhichToCheckExistence = targetFolder.resolve("sourceFolder1/folder2/folder2SubFolder2");
-                Assert.assertTrue("recursive copying of a folder created a folder within a subfolder of the target folder", Files.isDirectory(aFolderForWhichToCheckExistence));
+                Assert.assertTrue("recursive copying of multiple source folders/files created a folder within a subfolder of the target folder", Files.isDirectory(aFolderForWhichToCheckExistence));
 
                 Assert.assertEquals("changed file was overwritten in target folder", newByteSizeOfFile, targetFolder.resolve("sourceFolder1/folder2/folder2File1.dat").toFile().length());
 
-            } catch (InterruptedException e) {
-                Assert.fail("InterruptedException during BackgroundCopyWorker execution, recursive copying of a folder");
-
-            } catch (ExecutionException e) {
-                Assert.fail(e.getCause().getClass().getSimpleName() + " during BackgroundCopyWorker execution, recursive copying of a folder: Message: " + e.getCause().getMessage());
+            } catch (SwingCopyJobException e) {
+                Assert.fail(e.getCause().getClass().getSimpleName() + " occurred during BackgroundCopyWorker execution, recursive copying of a folder. Message: " + e.getCause().getMessage());
 
             } finally {
                 if (!swingFileManager.deletePathname(targetFolder)) {
@@ -412,7 +410,7 @@ public class SwingWorkerBasedFileManagerTest implements SwingCopyJobListener {
     }
 
     @Test
-    public void testCopyPathnames_MultipleFoldersAndFiles_NoRecursion() throws IOException {
+    public void testCopyPathnames_MultipleFoldersAndFiles_NoRecursion() throws IOException, InterruptedException {
         if (!deletePathnameTestsPassed) {
             Assert.fail("testing of copyPathname method depends on deletePathname testing, one or assertions for which failed");
         }
@@ -468,11 +466,8 @@ public class SwingWorkerBasedFileManagerTest implements SwingCopyJobListener {
                 Path aFolderForWhichToCheckExistence = targetFolder.resolve("FileManagementTestFolder/sourceFolder1/folder2/folder2SubFolder2");
                 Assert.assertTrue("created a particular folder within a subfolder of the target folder", Files.isDirectory(aFolderForWhichToCheckExistence));
 
-            } catch (InterruptedException e) {
-                Assert.fail("InterruptedException during BackgroundCopyWorker execution");
-
-            } catch (ExecutionException e) {
-                Assert.fail(e.getCause().getClass().getSimpleName() + " during BackgroundCopyWorker execution: Message: " + e.getCause().getMessage());
+            } catch (SwingCopyJobException e) {
+                Assert.fail(e.getCause().getClass().getSimpleName() + " occurred during BackgroundCopyWorker execution. Message: " + e.getCause().getMessage());
 
             } finally {
                 if (!swingFileManager.deletePathname(targetFolder)) {
@@ -487,7 +482,7 @@ public class SwingWorkerBasedFileManagerTest implements SwingCopyJobListener {
     }
 
     @Test
-    public void testCopyPathnames_Cancel() throws IOException {
+    public void testCopyPathnames_Cancel() throws IOException, InterruptedException {
         if (!deletePathnameTestsPassed) {
             Assert.fail("testing of copyPathname method depends on deletePathname testing, one or assertions for which failed");
         }
@@ -508,8 +503,8 @@ public class SwingWorkerBasedFileManagerTest implements SwingCopyJobListener {
         if (swingCopyJob != null) {
             try {
                 // Let the copy job proceed until at least 2 paths have been copied or 50ms have passed before cancelling it
-                while(pathsCopied <= 1) {
-                    synchronized(lockObject) {
+                while (pathsCopied <= 1) {
+                    synchronized (lockObject) {
                         lockObject.wait(50);
                     }
                 }
@@ -521,11 +516,8 @@ public class SwingWorkerBasedFileManagerTest implements SwingCopyJobListener {
                 int pathsCreated = getChildCount(targetFolder);
                 Assert.assertTrue("cancelling of the recursive copying of a pathname created at least 1 but less than 30 files/folders in the target folder due to job cancellation", (pathsCreated > 1) && (pathsCreated < 30));
 
-            } catch (InterruptedException e) {
-                Assert.fail("InterruptedException during BackgroundCopyWorker execution, cancelling of the recursive copying of a pathname");
-
-            } catch (ExecutionException e) {
-                Assert.fail(e.getCause().getClass().getSimpleName() + " during BackgroundCopyWorker execution, cancelling of the recursive copying of a pathname: Message: " + e.getCause().getMessage());
+            } catch (SwingCopyJobException e) {
+                Assert.fail(e.getCause().getClass().getSimpleName() + " occurred during BackgroundCopyWorker execution, cancelling of the recursive copying of a pathname. Message: " + e.getCause().getMessage());
 
             } finally {
                 if (!swingFileManager.deletePathname(targetFolder)) {
@@ -540,7 +532,7 @@ public class SwingWorkerBasedFileManagerTest implements SwingCopyJobListener {
     }
 
     @Test
-    public void copyPathname_PathsExceeding260Characters() throws IOException, ExecutionException, InterruptedException {
+    public void copyPathname_PathsExceeding260Characters() throws IOException, SwingCopyJobException, InterruptedException {
         Path aLongPath = new File("abcdefghijklmnopqrstuvwxyz1/abcdefghijklmnopqrstuvwxyz2/abcdefghijklmnopqrstuvwxyz3/abcdefghijklmnopqrstuvwxyz4/abcdefghijklmnopqrstuvwxyz5/abcdefghijklmnopqrstuvwxyz6/abcdefghijklmnopqrstuvwxyz7/abcdefghijklmnopqrstuvwxyz8/abcdefghijklmnopqrstuvwxyz9/abcdefghijklmnopqrstuvwxyz10/abcdefghijklmnopqrstuvwxyz11").toPath();
 
         Path sourcePath = fileManagementTestFolder.resolve("longPaths");
@@ -560,18 +552,38 @@ public class SwingWorkerBasedFileManagerTest implements SwingCopyJobListener {
         Path folder1SubFolder1File1 = folder1SubFolder1.resolve("folder1SubFolder1File1");
 
         // Create folders
-        pathInWhichToSpawnTestFiles.toFile().mkdirs();
-        folder1.toFile().mkdir();
-        folder2.toFile().mkdir();
-        folder1SubFolder1.toFile().mkdir();
-        folder1SubFolder2.toFile().mkdir();
-        folder1SubFolder1Folder1.toFile().mkdir();
+        if (!pathInWhichToSpawnTestFiles.toFile().mkdirs()) {
+            throw new IOException("Unable to create " + pathInWhichToSpawnTestFiles.getFileName() + " folder via File.mkdirs() method");
+        }
+        if (!folder1.toFile().mkdir()) {
+            throw new IOException("Unable to create " + folder1.getFileName() + " folder via File.mkdir() method");
+        }
+        if (!folder2.toFile().mkdir()) {
+            throw new IOException("Unable to create " + folder2.getFileName() + " folder via File.mkdir() method");
+        }
+        if (!folder1SubFolder1.toFile().mkdir()) {
+            throw new IOException("Unable to create " + folder1SubFolder1.getFileName() + " folder via File.mkdir() method");
+        }
+        if (!folder1SubFolder2.toFile().mkdir()) {
+            throw new IOException("Unable to create " + folder1SubFolder2.getFileName() + " folder via File.mkdir() method");
+        }
+        if (!folder1SubFolder1Folder1.toFile().mkdir()) {
+            throw new IOException("Unable to create " + folder1SubFolder1Folder1.getFileName() + " folder via File.mkdir() method");
+        }
 
         // Create files
-        try (BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(file1.toFile()))) { bos.write("file1".getBytes()); }
-        try (BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(folder1File1.toFile()))) { bos.write("folder1File1".getBytes()); }
-        try (BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(folder1File2.toFile()))) { bos.write("folder1File2".getBytes()); }
-        try (BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(folder1SubFolder1File1.toFile()))) { bos.write("folder1SubFolder1File1".getBytes()); }
+        try (BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(file1.toFile()))) {
+            bos.write("file1".getBytes());
+        }
+        try (BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(folder1File1.toFile()))) {
+            bos.write("folder1File1".getBytes());
+        }
+        try (BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(folder1File2.toFile()))) {
+            bos.write("folder1File2".getBytes());
+        }
+        try (BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(folder1SubFolder1File1.toFile()))) {
+            bos.write("folder1SubFolder1File1".getBytes());
+        }
 
         SwingCopyJob swingCopyJob = swingFileManager.copyPathname(sourcePath, targetFolder, true, false, null);
         if (swingCopyJob != null) {
@@ -580,6 +592,7 @@ public class SwingWorkerBasedFileManagerTest implements SwingCopyJobListener {
                 swingCopyJob.awaitCompletion();
 
                 Assert.assertEquals("21 files/folders were created under the destination folder", 21, getChildCount(targetFolder));
+
             } finally {
                 if (!swingFileManager.deletePathname(targetFolder)) {
                     Assert.fail("unable to delete destination folder");
@@ -636,7 +649,7 @@ public class SwingWorkerBasedFileManagerTest implements SwingCopyJobListener {
     }
 
     @Override
-    public void InternalCopyJobException(SwingCopyJob swingCopyJob, Throwable throwable) {
+    public void JobFinished(SwingCopyJob swingCopyJob, SwingCopyJobException exception) {
         // System.err.println(throwable.getMessage());
     }
 

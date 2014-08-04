@@ -3,6 +3,7 @@ package FileSieve.Persistence.Reports;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.ArrayList;
 import java.util.List;
@@ -15,32 +16,21 @@ import org.jsoup.nodes.Element;
  * A DiffReport class for outputting HTML reports
  */
 public class HTMLDiffReport implements DiffReport {
-    private static String TEMPLATE_DIR = "templates";
-    private static String TEMPLATE_NAME = "DiffReport.html";
+
+    private static String TEMPLATE_DIR = "resources";
+    private static String TEMPLATE_NAME = "DiffReportTemplate.html";
     private List<SimpleImmutableEntry<String, List<File>>> fileDiffResults;
     private List<String> deletedFiles;
     private Document reportDoc;
-    private String baseDir;
-    private String systemFileSeparator;
-
-    private HTMLDiffReport() {
-        baseDir = System.getProperty("user.dir");
-        systemFileSeparator = System.getProperty("file.separator");
-    }
 
     public HTMLDiffReport(List<SimpleImmutableEntry<String, List<File>>> diffResults) throws IOException {
-        this();
-
         fileDiffResults = diffResults;
         deletedFiles = new ArrayList<>();
 
         buildReport();
     }
 
-    public HTMLDiffReport(List<SimpleImmutableEntry<String, List<File>>> diffResults,
-                          List<String> deletedPaths) throws IOException {
-        this();
-
+    public HTMLDiffReport(List<SimpleImmutableEntry<String, List<File>>> diffResults, List<String> deletedPaths) throws IOException {
         fileDiffResults = diffResults;
         deletedFiles = deletedPaths;
 
@@ -63,7 +53,7 @@ public class HTMLDiffReport implements DiffReport {
      * @throws java.io.IOException
      */
     public void save(String savePath) throws IOException {
-        try(FileWriter fw = new FileWriter(savePath)) {
+        try (FileWriter fw = new FileWriter(savePath)) {
             fw.write(reportDoc.toString());
         }
     }
@@ -74,16 +64,17 @@ public class HTMLDiffReport implements DiffReport {
      * @throws java.io.IOException
      */
     private void buildReport() throws IOException {
-        File input = new File(baseDir + systemFileSeparator + TEMPLATE_DIR + systemFileSeparator + TEMPLATE_NAME);
+        try (InputStream template = Thread.currentThread().getContextClassLoader().getResourceAsStream(TEMPLATE_DIR + "/" + TEMPLATE_NAME)) {
+            reportDoc = Jsoup.parse(template, null, "");
+            Element diffReportContainer = reportDoc.select(".diffReport").first();
+            Element diffResultTable = diffReportContainer.select(".diffResult").first().clone();
 
-        reportDoc = Jsoup.parse(input, null);
-        Element diffReportContainer = reportDoc.select(".diffReport").first();
-        Element diffResultTable = diffReportContainer.select(".diffResult").first().clone();
+            diffReportContainer.empty();
 
-        diffReportContainer.empty();
-
-        for (SimpleImmutableEntry<String, List<File>> diffResult : fileDiffResults)
-            diffReportContainer.appendChild(getDiffTable(diffResultTable, diffResult));
+            for (SimpleImmutableEntry<String, List<File>> diffResult : fileDiffResults) {
+                diffReportContainer.appendChild(getDiffTable(diffResultTable, diffResult));
+            }
+        }
     }
 
     /**
@@ -91,10 +82,10 @@ public class HTMLDiffReport implements DiffReport {
      * The element is appended to the document passed to it, but it is also returned, where it can be modified further.
      * *table is a reference to the visual style that will eventually be applied, but it's an HTML div tag.
      *
-     * @param diffResultTable the jsoup Document element being used to form this report.
-     * @param diffResult the diff result to represent in table form
+     * @param diffResultTable   the jsoup Document element being used to form this report.
+     * @param diffResult        the diff result to represent in table form
      *
-     * @return a jsoup Element representing a div containing this file's listing of matches
+     * @return                  a jsoup Element representing a div containing this file's listing of matches
      */
     private Element getDiffTable(Element diffResultTable, SimpleImmutableEntry<String, List<File>> diffResult) {
         Element diffTable = diffResultTable.clone();
@@ -119,4 +110,5 @@ public class HTMLDiffReport implements DiffReport {
         }
         return diffTable;
     }
+
 }

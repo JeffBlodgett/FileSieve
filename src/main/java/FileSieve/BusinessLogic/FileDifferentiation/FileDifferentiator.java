@@ -23,7 +23,7 @@ public interface FileDifferentiator {
 
     /**
      * Enables the provision of a function object to be used in calculating a hash from one or more attributes of
-     * a file's Path or BasicFileAttributes objects. The hash defines how two or more files for equality.
+     * a file's Path or BasicFileAttributes objects. The hash defines how two or more files are checked for equality.
      *
      * @param fileHashCalculator    instance of a FileHashCalculator to be used in calculating hash codes for files
      */

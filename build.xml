@@ -3,15 +3,22 @@
 <project name="FileSieve" default="all" basedir=".">
 
     <property environment="env"/>
-    <property name="src.dir" value="src${file.separator}main${file.separator}java" description="project source code"/>
-    <property name="src-test.dir" value="src${file.separator}test${file.separator}java" description="project test code"/>
-    <property name="lib.dir" value="lib" description="project libraries are found here"/>
+    <property name="src.dir" value="src${file.separator}main${file.separator}java"
+              description="project source code"/>
+    <property name="src-test.dir" value="src${file.separator}test${file.separator}java"
+              description="project test code"/>
+    <property name="lib.dir" value="lib"
+              description="project libraries"/>
+    <property name="resources.dir" value="resources"
+              description="project resources"/>
     <property name="build.dir" value="build"
               description="anything this build script generates goes under this directory"/>
     <property name="jar.dir" value="${build.dir}${file.separator}jar"
               description="jar file is saved here"/>
     <property name="classes.dir" value="${build.dir}${file.separator}classes"
               description="Java class files compiled by this build script go here"/>
+    <property name="test.classes.dir" value="${build.dir}${file.separator}testClasses"
+              description="Java test class files compiled by this build script go here"/>
     <property name="report.dir" value="${build.dir}${file.separator}report"
               description="this directory is used by JUnit. Test results are placed here in a nice HTML format"/>
     <property name="build.instrumented.dir" value="${build.dir}${file.separator}instrumented"
@@ -20,36 +27,52 @@
               description="report directory used by Cobertura code coverage"/>
     <property name="main-class" value="FileSieve.FileSieve"
               description="application main class"/>
-              
 
-    <!-- this sets up the classpath for the project. Whenever you add a jar to the lib directory it will be
-         automatically added to the classpath -->
-    <path id="project.classpath" description="the project's classpath - all third party libs are on it">
+    <!-- Set the classpath for the project. Jar files added to the lib folder are added to the classpath
+         automatically. Items within the "lib/testing" folder are excluded. -->
+    <path id="project.classpath" description="the project's classpath - includes all libs in the root of the lib folder">
         <pathelement path="${classes.dir}" />
         <fileset dir="${lib.dir}">
             <include name="**/*.jar" />
-            <exclude name="cobertura/*" />
+            <exclude name="testing/**/*" />
         </fileset>
     </path>
 
-    <path id="cobertura.classpath">
-        <pathelement path="${classes.dir}" />
+    <!-- Set the classpath for testing. Extends the project classpath to include Jar files under the
+         "lib/testing" folder, excluding those required for Cobertura test coverage, and the resources folder. -->
+    <path id="test.classpath" description="the classpath to be used for test ">
+        <path refid="project.classpath"/>
+        <pathelement path="${test.classes.dir}" />
+        <pathelement path="${resources.dir}" />
         <fileset dir="${lib.dir}">
-            <include name="cobertura/*.jar" />
+            <include name="testing/**/*.jar" />
+            <exclude name="testing/cobertura/**/*"/>
+        </fileset>
+    </path>
+
+    <!-- Set the classpath for Cobertura test coverage. Extends the test classpath to include Jar files under
+         the "lib/testing/cobertura" folder. -->
+    <path id="cobertura.classpath">
+        <path refid="test.classpath"/>
+        <fileset dir="${lib.dir}">
+            <include name="testing/cobertura/**/*.jar" />
         </fileset>
     </path>
 
     <taskdef classpathref="cobertura.classpath" resource="tasks.properties" />
 
-    <!-- targets follow - each target does one thing in the compile, run, test and build process -->
+    <!-- targets follow -->
 
-    <target name="clean" description="deletes all build artifacts (anything created by this build file)" >
+    <target name="clean" description="deletes all build artifacts (anything created by this script)" >
         <delete dir="${build.dir}" />
     </target>
 
     <target name="init" description="Build initialization - create output directories" depends="clean" >
         <mkdir dir="${build.dir}" />
         <mkdir dir="${classes.dir}" />
+        <mkdir dir="${test.classes.dir}" />
+        <mkdir dir="${jar.dir}"/>
+        <mkdir dir="${jar.dir}${file.separator}lib" />
         <mkdir dir="${report.dir}" />
         <mkdir dir="${build.instrumented.dir}" />
         <mkdir dir="${build.report.cobertura.dir}" />
@@ -58,42 +81,47 @@
     <target name="compile" description="produce classes" depends="init">
         <javac destdir="${classes.dir}" debug="true" fork="true" includeantruntime="false">
             <src path="${src.dir}" />
-            <src path="${src-test.dir}" />
             <classpath refid="project.classpath" />
             <compilerarg value="-Xlint:unchecked" />
         </javac>
     </target>
 
-    <target name="instrument" description="cobertura instrumentation" depends="compile">
-        <!-- Instrument the application classes, writing the instrumented classes into ${build.instrumented.dir} -->
-        <cobertura-instrument ignoreTrivial="true" todir="${build.instrumented.dir}" datafile="${classes.dir}${file.separator}cobertura.ser">
-            <!-- the following line causes instrument to ignore any source line containing a reference
+    <target name="test-compile" description="compiles test classes" depends="init, compile">
+        <javac destdir="${test.classes.dir}" debug="true" fork="true" includeantruntime="false">
+            <src path="${src-test.dir}" />
+            <classpath refid="test.classpath" />
+            <compilerarg value="-Xlint:unchecked" />
+        </javac>
+    </target>
+
+    <!-- Instruments the application classes, writing the instrumented classes into "${build.instrumented.dir}".
+         The "cobertura.ser" file is placed within the root of this folder. -->
+    <target name="instrument" description="Cobertura instrumentation" depends="compile">
+        <cobertura-instrument ignoreTrivial="true" todir="${build.instrumented.dir}" datafile="${build.instrumented.dir}${file.separator}cobertura.ser">
+            <!-- the following line causes instrumentation to ignore any source line containing a reference
                  to log4j, for the purposes of coverage reporting -->
             <ignore regex="org.apache.log4j.*" />
 
+            <!-- Instrument all the application classes but don't instrument the test classes -->
             <fileset dir="${classes.dir}">
-                <!-- Instrument all the application classes but don't instrument the test classes -->
                 <include name="**/*.class" />
-                <exclude name="**/*Test.class" />
             </fileset>
         </cobertura-instrument>
     </target>
 
-    <target name="test" description="Runs all the JUnit tests and generates the test result reports" depends="compile,instrument">
+    <target name="test" description="Runs all JUnit tests and generates test result reports" depends="test-compile, instrument">
         <junit printsummary="yes" haltonfailure="false" showoutput="true" failureproperty="test_failure">
             <!-- specify the name of the cobertura coverage data file to use -->
-            <sysproperty key="net.sourceforge.cobertura.datafile" file="${classes.dir}${file.separator}cobertura.ser" />
+            <sysproperty key="net.sourceforge.cobertura.datafile" file="${build.instrumented.dir}${file.separator}cobertura.ser" />
 
             <!-- instrumented classes must appear before the original uninstrumented classes in the
-                 classpath for cobertura to work correctly -->
+                 classpath for cobertura to work correctly. The uninstrumeneted classes are added
+                 by the next command as part of the "covertura.classpath" -->
             <classpath location="${build.instrumented.dir}"/>
-            <classpath location="${classes.dir}"/>
 
             <!-- the instrumented classes reference classes used by the Cobertura runtime so Cobertura and its
                  dependencies must be on the classpath -->
             <classpath refid="cobertura.classpath"/>
-
-            <classpath refid="project.classpath"/>
 
             <formatter type="xml"/>
             <batchtest fork="yes" todir="${report.dir}">
@@ -111,38 +139,44 @@
         </junitreport>
 
         <!-- generate cobertura HTML report -->
-        <cobertura-report format="html" srcdir="${src.dir}" destdir="${build.report.cobertura.dir}" datafile="${classes.dir}${file.separator}cobertura.ser" />
+        <cobertura-report format="html" srcdir="${src.dir}" destdir="${build.report.cobertura.dir}" datafile="${build.instrumented.dir}${file.separator}cobertura.ser" />
 
-        <!-- If a test fails then the property "test_failure" will be set and we fail now...
-             failing now, rather than when the test actually failed, allows all the tests to complete
+        <!-- If a test fails then the property "test_failure" will be set and we fail now.
+             Failing now, rather than when the test actually failed, allows all the tests to complete
              and the report to be generated -->
         <fail if="test_failure" message="At least one JUnit test failed. Please see report." />
     </target>
 
     <target name="jar" description="Creates the JAR package" depends="compile">
-        <mkdir dir="${jar.dir}"/>
         <jar destfile="${jar.dir}${file.separator}${ant.project.name}.jar" basedir="${classes.dir}">
             <manifest>
                 <attribute name="Main-Class" value="${main-class}"/>
+                <attribute name="Class-Path" value="lib/jsoup-1.7.3.jar" />
             </manifest>
+            <zipfileset dir="${resources.dir}" />
         </jar>
+        <copy todir="${jar.dir}${file.separator}lib">
+            <fileset dir="${lib.dir}">
+                <include name="**/*.jar" />
+                <exclude name="testing/**/*" />
+            </fileset>
+        </copy>
     </target>
 
     <target name="run" description="Lauching the project's JAR package" depends="jar">
         <java fork="true" classname="${main-class}">
             <classpath>
-                <path refid="project.classpath"/>
                 <path location="${jar.dir}${file.separator}${ant.project.name}.jar"/>
             </classpath>
         </java>
     </target>
     
-    <target name="clean-build" depends="clean, jar"/>
+    <target name="clean-build" depends="jar"/>
 
-    <target name="main" depends="clean, run"/>
+    <target name="main" depends="run"/>
 	
     <!-- this is the default target... it does everything -->
-    <target name="all" depends="clean, init, compile, instrument, test"
+    <target name="all" depends="clean, init, compile, instrument, test-compile, test, jar"
      description="deletes previous work, initializes build directories, compiles project, instruments compiled classes, and runs tests" />
 
 </project>

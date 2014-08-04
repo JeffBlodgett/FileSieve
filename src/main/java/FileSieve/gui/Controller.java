@@ -432,15 +432,15 @@ public class Controller {
         if (retval == JFileChooser.APPROVE_OPTION) {
             String targetPath = saveFileChooser.getSelectedFile().toString();
             try {
-                //if no files are deleted save info about found duplicates
                 if(deletedPaths == null || deletedPaths.isEmpty()){
+                    // if no files were deleted save info about found duplicates
                     diffReport = DiffReportFactory.getDiffReport(duplicates);
                 } else {
-                //if files were recently deleted pass that info to report
+                    // if files were deleted pass that info to the report
                     diffReport = DiffReportFactory.getDiffReport(duplicates, deletedPaths);
                 }
             } catch (IOException ex) {
-                displayAlert("Couldn't create the report");
+                displayAlert(ex.getMessage() + "\nCouldn't create the report");
             }
             try {
                 diffReport.save(targetPath);

@@ -9,7 +9,7 @@
               description="project test code"/>
     <property name="lib.dir" value="lib"
               description="project libraries"/>
-    <property name="resources.dir" value="resources"
+    <property name="resources.dir" value="res"
               description="project resources"/>
     <property name="build.dir" value="build"
               description="anything this build script generates goes under this directory"/>

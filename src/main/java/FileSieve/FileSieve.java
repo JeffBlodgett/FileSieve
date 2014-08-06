@@ -1,4 +1,3 @@
-
 package FileSieve;
 
 import FileSieve.gui.Controller;
@@ -25,6 +24,9 @@ public class FileSieve {
         });  
     }
 
+    /**
+     * Utility method, for use in troubleshooting only, for printing out items on the classpath
+     */
     private static void printClassPath() {
         ClassLoader cl = ClassLoader.getSystemClassLoader();
         URL[] urls = ((URLClassLoader)cl).getURLs();

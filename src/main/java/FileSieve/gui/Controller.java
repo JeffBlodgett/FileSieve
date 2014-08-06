@@ -46,7 +46,7 @@ public class Controller {
     private FileEnumerator fileEnumerator;
     private FileDifferentiator fileDifferentiator; 
     static SwingFileManager swingFileManager; //protected so CheckTreeManager could access it (or does it create its own?)
-    private SwingCopyJob swingCopyJob; 
+    protected SwingCopyJob swingCopyJob;
     private DiffReport diffReport;
     List<SimpleImmutableEntry<String, List<File>>> duplicates; //protected so test could mock it
     List<String> deletedPaths; //protected so test could mock it

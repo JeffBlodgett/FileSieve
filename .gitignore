@@ -37,11 +37,3 @@ nbbuild.xml
 /nbproject/
 /build/
 /out/
-
-# code coverage #
-#################
-cobertura.ser
-
-# other #
-#########
-*.html

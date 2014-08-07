@@ -55,12 +55,15 @@ public class ScreenSwitcher {
         }
         
         //on window close save window placement preferences
-        mainFrame.setDefaultCloseOperation(javax.swing.WindowConstants.DO_NOTHING_ON_CLOSE);
+        mainFrame.setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
         mainFrame.addWindowListener(new java.awt.event.WindowAdapter() {
             @Override
             public void windowClosing(java.awt.event.WindowEvent evt) {
                 windowPrefs.save();
-                System.exit(0); 
+
+                if (controller.swingCopyJob != null) {
+                    controller.swingCopyJob.cancelJob();
+                }
             }
         });
         

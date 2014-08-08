@@ -16,7 +16,12 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.RejectedExecutionHandler;
+import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Handles the actual work (folder and file copies) for a SwingCopyJob.
@@ -24,8 +29,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 class CopyJobWorkDelegate implements Runnable {
 
-    private static final int ONE_HUNDRED_PERCENT = 100;
-    private static final int ZERO_PERCENT = 0;
+    private static final long ONE_HUNDRED_PERCENT = 100L;
+    private static final long ZERO_PERCENT = 0L;
     private final boolean recursiveCopy;
     private final CopyWorkResultsReceiver copyWorkDispatcher;
     private final Set<Path> pathsBeingCopied;
@@ -34,13 +39,18 @@ class CopyJobWorkDelegate implements Runnable {
     private final Comparator<Path> fileComparator;
     private final boolean overwriteExistingFiles;
     private final List<Path> foldersCreatedInTarget = new ArrayList<>();
-    private long totalBytes = 0L;
-    private long copiedBytes = 0L;
-    private int totalPercentCopied = 0;
+    private final Object fileCopyLock = new Object();
     private int copyPathsRecursionLevel = 0;
+    private AtomicInteger fileCopyThreadCount = new AtomicInteger(0);
 
-    protected CopyJobWorkDelegate(CopyWorkResultsReceiver copyWorkDispatcher, Set<Path> pathsBeingCopied, Path destinationFolder, boolean recursiveCopy, boolean overwriteExistingFiles, Comparator<Path> fileComparator) {
-        if (copyWorkDispatcher == null) {
+    private final int corePoolSize;
+    private final int maximumPoolSize;
+    private final long keepAliveTime;
+    private final ThreadPoolExecutor threadPoolExecutor;
+    private final Object shutdownLock = new Object();
+
+    protected CopyJobWorkDelegate(CopyWorkResultsReceiver copyWorkResultsReceiver, Set<Path> pathsBeingCopied, Path destinationFolder, boolean recursiveCopy, boolean overwriteExistingFiles, Comparator<Path> fileComparator) {
+        if (copyWorkResultsReceiver == null) {
             throw new IllegalArgumentException("\"copyWorkDispatcher\" parameter cannot be null");
         }
         if (pathsBeingCopied == null) {
@@ -53,7 +63,44 @@ class CopyJobWorkDelegate implements Runnable {
             throw new IllegalArgumentException("\"fileComparator\" parameter cannot be null");
         }
 
-        this.copyWorkDispatcher = copyWorkDispatcher;
+        corePoolSize = 10;
+        maximumPoolSize = corePoolSize;
+        keepAliveTime = 5000;
+        threadPoolExecutor = new ThreadPoolExecutor(corePoolSize, maximumPoolSize, keepAliveTime, TimeUnit.MILLISECONDS, new SynchronousQueue<Runnable>()) {
+            @Override
+            protected void terminated() {
+                super.terminated();
+                synchronized(shutdownLock) {
+                    shutdownLock.notify();
+                }
+            }
+
+            @Override
+            protected void afterExecute(Runnable r, Throwable t) {
+                fileCopyThreadCount.decrementAndGet();
+                synchronized(fileCopyLock){
+                    fileCopyLock.notify();
+                }
+            }
+        };
+        threadPoolExecutor.setRejectedExecutionHandler(new RejectedExecutionHandler() {
+            @Override
+            public void rejectedExecution(Runnable r, ThreadPoolExecutor executor) {
+                synchronized(fileCopyLock) {
+                    if (!jobCancelled.get()) {
+                        try {
+                            fileCopyLock.wait();
+                            executor.execute(r);
+                        } catch (InterruptedException e) {
+                            copyWorkDispatcher.workerException(e);
+                        }
+                    }
+                }
+            }
+        });
+        threadPoolExecutor.prestartAllCoreThreads();
+
+        this.copyWorkDispatcher = copyWorkResultsReceiver;
         this.pathsBeingCopied = pathsBeingCopied;
         this.destinationFolder = destinationFolder;
         this.recursiveCopy = recursiveCopy;
@@ -63,28 +110,22 @@ class CopyJobWorkDelegate implements Runnable {
         jobCancelled = new AtomicBoolean(false);
     }
 
-    protected void cancelWork() {
+    protected void stopWorkers() {
         jobCancelled.set(true);
+        threadPoolExecutor.shutdown();
+        synchronized(shutdownLock) {
+            while (!threadPoolExecutor.isShutdown()) {
+                try {
+                    shutdownLock.wait();
+                } catch (InterruptedException e) {
+                    throw new RuntimeException("InterruptedException occurred while stopping FileCopy workers", e);
+                }
+            }
+        }
     }
 
     @Override
     public void run() {
-        try {
-            for (Path path : pathsBeingCopied) {
-                if (extractPath(path).toFile().exists()) {
-                    retrieveTotalBytes(path);
-                } else {
-                    copyWorkDispatcher.workerException(new IllegalStateException("source pathname does not exist"));
-                }
-            }
-        } catch (SecurityException e) {
-            copyWorkDispatcher.workerException(new SecurityException("SecurityException while calculating bytes to copy", e));
-        } catch (IOException e) {
-            copyWorkDispatcher.workerException(new IOException("IOException while calculating bytes to copy", e));
-        }  catch (Exception e) {
-            copyWorkDispatcher.workerException(new Exception(e.getClass().getSimpleName() + " while calculating bytes to copy", e));
-        }
-
         try {
             for (Path path : pathsBeingCopied) {
                 if (!jobCancelled.get()) {
@@ -97,6 +138,22 @@ class CopyJobWorkDelegate implements Runnable {
             copyWorkDispatcher.workerException(new IOException("IOException while reading or writing files/folders in the source or target", e));
         } catch (Exception e) {
             copyWorkDispatcher.workerException(new Exception(e.getClass().getSimpleName() + " while reading or writing files/folders in the source or target", e));
+        }
+
+        while (fileCopyThreadCount.get() > 0) {
+            synchronized(fileCopyLock) {
+                try {
+                    fileCopyLock.wait();
+                } catch (InterruptedException e) {
+                    copyWorkDispatcher.workerException(e);
+                }
+            }
+        }
+
+        try {
+            stopWorkers();
+        } catch (RuntimeException e) {
+            copyWorkDispatcher.workerException(e);
         }
 
         copyWorkDispatcher.workCompleted();
@@ -147,8 +204,8 @@ class CopyJobWorkDelegate implements Runnable {
                         }
                     }
 
-                        /* Determine if the file's parent folder was previously created within the target folder,
-                           searching the "foldersCreateInTarget" list in reverse order */
+                    /* Determine if the file's parent folder was previously created within the target folder,
+                       searching the "foldersCreateInTarget" list in reverse order */
                     Path parentPathCreatedInTargetFolder = null;
                     for (int i = foldersCreatedInTarget.size() - 1; i >= 0; --i) {
                         if (sourcePath.getParent().endsWith(foldersCreatedInTarget.get(i))) {
@@ -157,12 +214,14 @@ class CopyJobWorkDelegate implements Runnable {
                         }
                     }
 
-                        /* If file's parent was previously created within the target folder then create the file copy
-                           within that parent, else create the file in the root of the target */
+                    /* If file's parent was previously created within the target folder then create the file copy
+                       within that parent, else create the file in the root of the target */
                     if (parentPathCreatedInTargetFolder != null) {
-                        copyFile(sourcePath, targetPath.resolve(parentPathCreatedInTargetFolder));
+                        fileCopyThreadCount.incrementAndGet();
+                        threadPoolExecutor.execute(new CopyFile(sourcePath, targetPath.resolve(parentPathCreatedInTargetFolder)));
                     } else {
-                        copyFile(sourcePath, targetPath);
+                        fileCopyThreadCount.incrementAndGet();
+                        threadPoolExecutor.execute(new CopyFile(sourcePath, targetPath));
                     }
 
                 }
@@ -214,9 +273,11 @@ class CopyJobWorkDelegate implements Runnable {
                                 }
                             }
 
-                            copyFile(path, newTargetPath);
+                            fileCopyThreadCount.incrementAndGet();
+                            threadPoolExecutor.execute(new CopyFile(path, newTargetPath));
                         } else {
-                            copyFile(path, targetPath);
+                            fileCopyThreadCount.incrementAndGet();
+                            threadPoolExecutor.execute(new CopyFile(path, targetPath));
                         }
                     }
                 }
@@ -242,8 +303,8 @@ class CopyJobWorkDelegate implements Runnable {
                 }
             }
 
-                /* Determine if the folder's parent was previously created within the target folder, searching the
-                   "foldersCreateInTarget" list in reverse order */
+            /* Determine if the folder's parent was previously created within the target folder, searching the
+               "foldersCreateInTarget" list in reverse order */
             Path pathToCreateInTargetFolder = null;
             for (int i = foldersCreatedInTarget.size() - 1; i >= 0; --i) {
                 if (sourcePath.getParent().endsWith(foldersCreatedInTarget.get(i))) {
@@ -252,8 +313,8 @@ class CopyJobWorkDelegate implements Runnable {
                 }
             }
 
-                /* If folder's parent was previously created within the target folder then create the folder within
-                   that parent, else create the folder in the root of the target */
+            /* If folder's parent was previously created within the target folder then create the folder within
+               that parent, else create the folder in the root of the target */
             if (pathToCreateInTargetFolder != null) {
                 Path newPathToCreate = targetPath.resolve(pathToCreateInTargetFolder);
                 if (!foldersCreatedInTarget.contains(pathToCreateInTargetFolder)) {
@@ -271,117 +332,6 @@ class CopyJobWorkDelegate implements Runnable {
                     }
                 }
                 foldersCreatedInTarget.add(sourcePath.getFileName());
-            }
-        }
-    }
-
-    /**
-     * Private helper method, called by "copyPaths" method, for copying a single file
-     *
-     * @param fileToCopy            file to copy, passed as a Path instance
-     * @param target                folder within which copy is to be placed
-     * @throws SecurityException    thrown if the security manager denies read-access to the original file or
-     *                              write-access to the destination folder
-     * @throws IOException          thrown if an IOException occurs during read/write operations
-     */
-    private void copyFile(Path fileToCopy, Path target) throws SecurityException, IOException {
-        target = target.resolve(fileToCopy.getFileName());
-
-        int previousPercentCopied;
-        long fileBytes = fileToCopy.toFile().length();  // size of file in bytes
-
-        boolean filesAreSimilar = false;
-        if (fileComparator.compare(fileToCopy, target) == 0) {
-            filesAreSimilar = true;
-        }
-
-        if ((!filesAreSimilar) || overwriteExistingFiles)  {
-            long soFar = 0L;    // file bytes copied thus far
-            int sourceByte;
-            int filePercentCopied = ZERO_PERCENT;
-            int pathnameProgress = ZERO_PERCENT;
-
-            try (
-                    BufferedInputStream bis = new BufferedInputStream(new FileInputStream(fileToCopy.toFile()));
-                    BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(target.toFile()))
-            ) {
-                /* Copy file one byte at time. BufferedInputStream and BufferedOutputStream have buffers so
-                   so this isn't as slow as it might at first seem */
-                while (((sourceByte = bis.read()) != -1) && (!jobCancelled.get())) {
-                    bos.write(sourceByte);
-
-                    // Update copy job's overall progress
-                    previousPercentCopied = totalPercentCopied;
-                    totalPercentCopied = (int) (++copiedBytes * ONE_HUNDRED_PERCENT / totalBytes);
-                    if ((totalPercentCopied != previousPercentCopied) && (totalPercentCopied < ONE_HUNDRED_PERCENT)) {
-                        publishWork(new SimpleImmutableEntry<>(destinationFolder, totalPercentCopied));
-                    }
-
-                    /* Update the progress of the individual file copy if progress has incremented by at least 1 percent
-                       and is not yet 100 percent complete */
-                    filePercentCopied = (int) (++soFar * ONE_HUNDRED_PERCENT / fileBytes);
-                    if ((pathnameProgress != filePercentCopied) && (filePercentCopied < ONE_HUNDRED_PERCENT)) {
-                        pathnameProgress = filePercentCopied;
-                        publishWork(new SimpleImmutableEntry<>(target, pathnameProgress));
-                    }
-                }
-
-                // Delete file fragment
-                if (jobCancelled.get() && (filePercentCopied < ONE_HUNDRED_PERCENT)) {
-                    bos.close();
-
-                    if (!target.toFile().delete()) {
-                        throw new IOException("Unable to delete incomplete file fragment \"" + target.toString() + "\" following job cancellation");
-                    }
-
-                    /* Backtrack... set and publish the total job progress as the value had prior to this attempted
-                       file-copy and set+publish the progress for the failed copy to/as 0 percent */
-                    if (soFar >0) {
-                        copiedBytes -= soFar;
-                        publishWork(new SimpleImmutableEntry<>(target, ZERO_PERCENT));
-                    }
-                    previousPercentCopied = totalPercentCopied;
-                    totalPercentCopied = (int) (copiedBytes * ONE_HUNDRED_PERCENT / totalBytes);
-                    if ((totalPercentCopied != previousPercentCopied) && (totalPercentCopied < ONE_HUNDRED_PERCENT)) {
-                        publishWork(new SimpleImmutableEntry<>(destinationFolder, totalPercentCopied));
-                    }
-                } else {
-                    // No need to set "pathnameProgress" variable to 100... publish completion of the file copy and move on
-                    publishWork(new SimpleImmutableEntry<>(target, ONE_HUNDRED_PERCENT));
-                }
-
-            } catch (IOException e) {
-                // Backtrack... set+publish the total job progress to the value had prior to this attempted file
-                // copy and set+publish the progress for the failed copy to/as 0 percent
-                if (soFar > 0) {
-                    copiedBytes -= soFar;
-                    publishWork(new SimpleImmutableEntry<>(target, ZERO_PERCENT));
-                }
-                previousPercentCopied = totalPercentCopied;
-                totalPercentCopied = (int) (copiedBytes * ONE_HUNDRED_PERCENT / totalBytes);
-                if ((totalPercentCopied != previousPercentCopied) && (totalPercentCopied < ONE_HUNDRED_PERCENT)) {
-                    publishWork(new SimpleImmutableEntry<>(destinationFolder, totalPercentCopied));
-                }
-
-                try {
-                    if ((target.toFile().exists()) && ((target.toFile().length() == 0L) || (soFar > 0L))) {
-                        if (!target.toFile().delete()) {
-                            throw new IOException("An IOException occurred while copying file \"" + fileToCopy.toString() + "\". An incomplete copy was left in the destination folder.", e);
-                        }
-                        throw new IOException("An IOException occurred while copying file \"" + fileToCopy.toString() + "\". An incomplete copy was not left in the destination folder.", e);
-                    } else {
-                        throw new IOException("An IOException occurred while copying file \"" + fileToCopy.toString() + "\".", e);
-                    }
-                } catch (IOException ex) {
-                    throw new IOException("An IOException occurred while copying file \"" + fileToCopy.toString() + "\". An incomplete copy may have been left in the destination folder.", ex);
-                }
-            }
-        } else {
-            copiedBytes += fileBytes;
-            previousPercentCopied = totalPercentCopied;
-            totalPercentCopied = (int) (copiedBytes * ONE_HUNDRED_PERCENT / totalBytes);
-            if ((totalPercentCopied != previousPercentCopied) && (totalPercentCopied < ONE_HUNDRED_PERCENT)) {
-                publishWork(new SimpleImmutableEntry<>(destinationFolder, totalPercentCopied));
             }
         }
     }
@@ -405,27 +355,136 @@ class CopyJobWorkDelegate implements Runnable {
      *
      * @param result    result to provide
      */
-    private void publishWork(SimpleImmutableEntry<Path, Integer> result) {
+    private void publishWork(SimpleImmutableEntry<Path, Long> result) {
         copyWorkDispatcher.receiveWorkResults(result);
     }
 
-    private void retrieveTotalBytes(Path sourcePathname) throws SecurityException, IOException {
-        if (Files.isDirectory(extractPath(sourcePathname))) {
-            try (DirectoryStream<Path> dirStream = Files.newDirectoryStream(extractPath(sourcePathname))) {
-                for (Path path : dirStream) {
-                    if (!jobCancelled.get()) {
-                        // Exclude target folder if it is a subfolder of the source folder
-                        if (Files.isDirectory(extractPath(path), LinkOption.NOFOLLOW_LINKS) && (!path.equals(destinationFolder) && recursiveCopy)) {
-                            retrieveTotalBytes(path);
-                        } else if (Files.isRegularFile(extractPath(path), LinkOption.NOFOLLOW_LINKS)) {
-                            totalBytes += path.toFile().length();
+    /**
+     * Runnable that copies a specific file to a target folder.
+     */
+    private class CopyFile implements Runnable {
+
+        private final Path fileToCopy;
+        private Path target;
+
+        /**
+         * Constructor for the CopyFile Runnable.
+         *
+         * @param fileToCopy    file to copy, passed as a Path instance
+         * @param target        folder within which copy is to be placed
+         */
+        protected CopyFile(Path fileToCopy, Path target) {
+            if (fileToCopy == null) {
+                throw new IllegalArgumentException("\"fileToCopy\" parameter cannot be null");
+            }
+            if (target == null) {
+                throw new IllegalArgumentException("\"target\" parameter cannot be null");
+            }
+
+            this.fileToCopy = fileToCopy;
+            this.target = target;
+        }
+
+        @Override
+        public void run() {
+            target = target.resolve(fileToCopy.getFileName());
+
+            long fileBytes = fileToCopy.toFile().length();  // size of file in bytes
+
+            boolean filesAreSimilar = false;
+            if (fileComparator.compare(fileToCopy, target) == 0) {
+                filesAreSimilar = true;
+            }
+
+            if ((!filesAreSimilar) || overwriteExistingFiles)  {
+                long soFar = 0L;    // file bytes copied thus far
+                int sourceByte;
+                long filePercentCopied = ZERO_PERCENT;
+                long pathnameProgress = ZERO_PERCENT;
+                final long oneMegabyte = 1048576L;
+                long reportedBytes = 0;
+                long nextReportingThreshold = oneMegabyte;
+
+                try (
+                        BufferedInputStream bis = new BufferedInputStream(new FileInputStream(fileToCopy.toFile()));
+                        BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(target.toFile()))
+                ) {
+                    /* Copy file one byte at time. BufferedInputStream and BufferedOutputStream have buffers so this
+                       isn't as slow as it might at first seem */
+                    while (((sourceByte = bis.read()) != -1) && (!jobCancelled.get())) {
+                        if (soFar == 0L) {
+                            publishWork(new SimpleImmutableEntry<>(target, pathnameProgress));
+                        }
+
+                        bos.write(sourceByte);
+
+                        ++soFar;
+
+                        // Update progress every 1 MB
+                        if (soFar == nextReportingThreshold) {
+                            publishWork(new SimpleImmutableEntry<>(destinationFolder, oneMegabyte));
+                            reportedBytes += oneMegabyte;
+                            nextReportingThreshold += oneMegabyte;
+
+                            /* Update the progress of the individual file copy if progress has incremented by at least 1 percent
+                               and is not yet 100 percent complete */
+                            filePercentCopied = (int) (soFar * ONE_HUNDRED_PERCENT / fileBytes);
+                            if ((pathnameProgress != filePercentCopied) && (filePercentCopied < ONE_HUNDRED_PERCENT)) {
+                                pathnameProgress = filePercentCopied;
+                                publishWork(new SimpleImmutableEntry<>(target, pathnameProgress));
+                            }
                         }
                     }
+
+                    if (jobCancelled.get() && (filePercentCopied < ONE_HUNDRED_PERCENT)) {
+                        // Job was cancelled - delete file fragment and handle reporting
+
+                        bos.close();
+
+                        if (!target.toFile().delete()) {
+                            throw new IOException("Unable to delete incomplete file fragment \"" + target.toString() + "\" following job cancellation");
+                        }
+
+                        // Backtrack... publish the percent copy progress for the file as 0 and roll back the total bytes copied
+                        if (soFar > 0) {
+                            publishWork(new SimpleImmutableEntry<>(target, ZERO_PERCENT));
+                            if (reportedBytes > 0) {
+                                publishWork(new SimpleImmutableEntry<>(destinationFolder, -reportedBytes));
+                            }
+                        }
+                    } else {
+                        // No need to set "pathnameProgress" variable to 100... publish completion of the file copy and move on
+                        publishWork(new SimpleImmutableEntry<>(target, ONE_HUNDRED_PERCENT));
+                        long unreportedBytesCopied;
+                        if ((unreportedBytesCopied = soFar - reportedBytes) > 0) {
+                            publishWork(new SimpleImmutableEntry<>(destinationFolder, unreportedBytesCopied));
+                        }
+                    }
+
+                } catch (IOException e) {
+                    // Backtrack... set+publish the total job progress to the value had prior to this attempted file
+                    // copy and set+publish the progress for the failed copy to/as 0 percent
+                    if (soFar > 0) {
+                        publishWork(new SimpleImmutableEntry<>(target, ZERO_PERCENT));
+                        if (reportedBytes > 0) {
+                            publishWork(new SimpleImmutableEntry<>(destinationFolder, -reportedBytes));
+                        }
+                    }
+
+                    if ((target.toFile().exists()) && ((target.toFile().length() == 0L) || (soFar > 0L))) {
+                        if (!target.toFile().delete()) {
+                            copyWorkDispatcher.workerException(new IOException("An IOException occurred while copying file \"" + fileToCopy.toString() + "\". An incomplete copy was left in the destination folder.", e));
+                        }
+                        copyWorkDispatcher.workerException(new IOException("An IOException occurred while copying file \"" + fileToCopy.toString() + "\". An incomplete copy was not left in the destination folder.", e));
+                    } else {
+                        copyWorkDispatcher.workerException(new IOException("An IOException occurred while copying file \"" + fileToCopy.toString() + "\".", e));
+                    }
                 }
+            } else {
+                publishWork(new SimpleImmutableEntry<>(destinationFolder, fileBytes));
             }
-        } else {
-            totalBytes += sourcePathname.toFile().length();
         }
+
     }
 
 }

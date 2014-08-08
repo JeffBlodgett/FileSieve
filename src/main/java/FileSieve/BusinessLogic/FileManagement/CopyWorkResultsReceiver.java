@@ -22,10 +22,10 @@ interface CopyWorkResultsReceiver {
      *
      * @param result    A unit of work representing a progress update for the copy of a specific file, folder, or a
      *                  progress update for the overall copy job. The update consists of the Path instance representing
-     *                  the item being updating and an Integer representing the percentage of the copy that has been
-     *                  completed.
+     *                  the item being updating and a Long representing the percentage of a file that has been copied
+     *                  or the total number of bytes that have been copied by the copy job.
      */
-    public void receiveWorkResults(SimpleImmutableEntry<Path, Integer> result);
+    public void receiveWorkResults(SimpleImmutableEntry<Path, Long> result);
 
     /**
      * Provides a means by which a CopyJobWorkDelegate instance can communicate a "work complete" message to a

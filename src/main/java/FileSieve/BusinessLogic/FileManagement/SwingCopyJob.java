@@ -4,6 +4,7 @@ import FileSieve.BusinessLogic.FileEnumeration.DiscoveredPath;
 
 import javax.swing.SwingWorker;
 import java.io.IOException;
+import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
@@ -320,8 +321,7 @@ public final class SwingCopyJob {
 
     /**
      * Updates the EDT on copy job progress. This class' background thread handles forwarding of job updates to the
-     * EDT. It delegates actual folder and file creation in the destination folder to a background thread (an
-     * instance of CopyJobWorkDelegate).
+     * EDT. It delegates actual folder and file creation in the destination folder to a an instance of CopyJobWorkDelegate.
      */
     private class EdtUpdater extends SwingWorker<Void, SimpleImmutableEntry<Path, Integer>> implements CopyWorkResultsReceiver {
 
@@ -332,12 +332,15 @@ public final class SwingCopyJob {
         private final AtomicReference<Exception> workerException = new AtomicReference<>(null);
         private final Object swingUpdaterLock = new Object();
         private final AtomicBoolean workCompleted = new AtomicBoolean(false);
-        private final ConcurrentLinkedQueue<SimpleImmutableEntry<Path, Integer>> workResultsQueue = new ConcurrentLinkedQueue<>();
+        private final ConcurrentLinkedQueue<SimpleImmutableEntry<Path, Long>> workResultsQueue = new ConcurrentLinkedQueue<>();
         private final AtomicBoolean jobCancelled = new AtomicBoolean(false);
+        private int totalBytes = 0;
+        private long copiedBytes = 0L;
+        private int totalPercentCopied = 0;
 
         protected boolean cancelWork() {
             boolean result = !jobCancelled.getAndSet(true);
-            copyJobWorkDelegate.cancelWork();
+            copyJobWorkDelegate.stopWorkers();
             return result;
         }
 
@@ -370,7 +373,7 @@ public final class SwingCopyJob {
         }
 
         @Override   // CopyWorkResultsReceiver
-        public void receiveWorkResults(SimpleImmutableEntry<Path, Integer> result) {
+        public void receiveWorkResults(SimpleImmutableEntry<Path, Long> result) {
             workResultsQueue.add(result);
 
             // Notify worker thread of work received
@@ -405,20 +408,43 @@ public final class SwingCopyJob {
         public Void doInBackground() throws IllegalStateException, SecurityException, IOException, InterruptedException {
             backgroundThreadIsRunning.set(true);
 
+            try {
+                for (Path path : pathsBeingCopied) {
+                    if (extractPath(path).toFile().exists()) {
+                        retrieveTotalBytes(path);
+                    } else {
+                        throw new IllegalStateException("source pathname does not exist");
+                    }
+                }
+            } catch (SecurityException e) {
+                throw new SecurityException("SecurityException while calculating bytes to copy", e);
+            } catch (IOException e) {
+                throw new IOException("IOException while calculating bytes to copy", e);
+            }
+
             // Start the CopyJobWorkDelegate and wait for its completion, or an exception, to be thrown
             myWorker.start();
 
             while ((myWorker.isAlive()) && (!workCompleted.get())) {
-                synchronized(swingUpdaterLock) {
+                synchronized (swingUpdaterLock) {
                     swingUpdaterLock.wait();
                 }
 
-                SimpleImmutableEntry<Path, Integer> result;
+                SimpleImmutableEntry<Path, Long> result;
                 while ((result = workResultsQueue.poll()) != null) {
                     if (result.getKey().equals(destinationFolder)) {
-                        setProgress(result.getValue());
+                        /* Update copy job's overall progress and publish the current percent-completion if the
+                           percentage has changed */
+                        long previousPercentCopied = totalPercentCopied;
+                        copiedBytes += result.getValue();
+                        totalPercentCopied = (int) (copiedBytes * ONE_HUNDRED_PERCENT / totalBytes);
+                        if ((totalPercentCopied != previousPercentCopied) && (totalPercentCopied < ONE_HUNDRED_PERCENT)) {
+                            setProgress(totalPercentCopied);
+                            publish(new SimpleImmutableEntry<>(destinationFolder, totalPercentCopied));
+                        }
+                    } else {
+                        publish(new SimpleImmutableEntry<>(result.getKey(), result.getValue().intValue()));
                     }
-                    publish(result);
                 }
 
                 Exception e = workerException.get();
@@ -429,6 +455,8 @@ public final class SwingCopyJob {
                         throw (IOException) e;
                     } else if (e instanceof IllegalStateException) {
                         throw (IllegalStateException) e;
+                    } else if (e instanceof InterruptedException) {
+                        throw (InterruptedException) e;
                     } else {
                         throw new RuntimeException(e.getMessage(), e);
                     }
@@ -523,6 +551,25 @@ public final class SwingCopyJob {
             // Unblock a caller of the awaitCompletion() method is the enclosing class
             synchronized (lockObject) {
                 lockObject.notify();
+            }
+        }
+
+        private void retrieveTotalBytes(Path sourcePathname) throws SecurityException, IOException {
+            if (Files.isDirectory(extractPath(sourcePathname))) {
+                try (DirectoryStream<Path> dirStream = Files.newDirectoryStream(extractPath(sourcePathname))) {
+                    for (Path path : dirStream) {
+                        if (!jobCancelled.get()) {
+                            // Exclude target folder if it is a subfolder of the source folder
+                            if (Files.isDirectory(extractPath(path), LinkOption.NOFOLLOW_LINKS) && (!path.equals(destinationFolder) && recursiveCopy)) {
+                                retrieveTotalBytes(path);
+                            } else if (Files.isRegularFile(extractPath(path), LinkOption.NOFOLLOW_LINKS)) {
+                                totalBytes += path.toFile().length();
+                            }
+                        }
+                    }
+                }
+            } else {
+                totalBytes += sourcePathname.toFile().length();
             }
         }
 

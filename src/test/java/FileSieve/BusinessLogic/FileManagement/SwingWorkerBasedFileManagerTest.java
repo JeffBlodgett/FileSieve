@@ -503,15 +503,17 @@ public class SwingWorkerBasedFileManagerTest implements SwingCopyJobListener {
         if (swingCopyJob != null) {
             try {
                 // Let the copy job proceed until at least 2 paths have been copied or 50ms have passed before cancelling it
-                while (pathsCopied <= 1) {
+                while (pathsCopied < 1) {
                     synchronized (lockObject) {
                         lockObject.wait(50);
                     }
                 }
+                //System.err.println("MADE IT THROUGH");
                 Assert.assertTrue("job was successfully issued a cancel request", swingCopyJob.cancelJob());
 
                 // exceptions that occur on internal SwingWorker's background thread are rethrown by this method
                 swingCopyJob.awaitCompletion();
+                //System.err.println("AWAITED");
 
                 int pathsCreated = getChildCount(targetFolder);
                 Assert.assertTrue("cancelling of the recursive copying of a pathname created at least 1 but less than 30 files/folders in the target folder due to job cancellation", (pathsCreated > 1) && (pathsCreated < 30));
@@ -640,7 +642,7 @@ public class SwingWorkerBasedFileManagerTest implements SwingCopyJobListener {
         if (percentProgressed == 100) {
             pathsCopied++;
 
-            if (pathsCopied > 1) {
+            if (pathsCopied >= 1) {
                 synchronized(lockObject) {
                     lockObject.notify();
                 }

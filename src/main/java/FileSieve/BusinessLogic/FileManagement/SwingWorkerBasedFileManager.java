@@ -12,16 +12,26 @@ import java.util.Set;
  */
 final class SwingWorkerBasedFileManager extends AbstractFileManager<SwingCopyJob, SwingCopyJobListener, Path> implements SwingFileManager {
 
-    private int workerLimit;
+    private int fileCopyThreadLimit;
     private SwingCopyJobListener swingCopyJobListener;
 
     /**
-     * Future functionality for limiting the number of worker threads used by a copy job.
+     * Constructor for SwingWorkerBasedFileManager class.
      *
-     * @param workerThreadLimit     number of concurrent worker thread (file/folder copies) to be permitted per copy job
+     * @param fileCopyThreadLimit   maximum number of concurrent file copy threads
      */
-    protected SwingWorkerBasedFileManager(int workerThreadLimit) {
-        this.workerLimit = workerThreadLimit;
+    protected SwingWorkerBasedFileManager(int fileCopyThreadLimit) {
+        this.fileCopyThreadLimit = fileCopyThreadLimit;
+    }
+
+    /**
+     * Sets the maximum number of concurrent file copy threads.
+     *
+     * @param fileCopyThreadLimit
+     */
+    @Override
+    public void setFileCopyThreadLimit(int fileCopyThreadLimit) {
+        this.fileCopyThreadLimit = fileCopyThreadLimit;
     }
 
     /**
@@ -54,7 +64,7 @@ final class SwingWorkerBasedFileManager extends AbstractFileManager<SwingCopyJob
             throw new NullPointerException("null path provided for targetPathname parameter");
         }
 
-        return SwingCopyJob.getCopyJob(sourcePathnames, targetPathname, recursionEnabled, overwriteExistingFiles, fileComparator, swingCopyJobListener);
+        return SwingCopyJob.getCopyJob(sourcePathnames, targetPathname, recursionEnabled, overwriteExistingFiles, fileCopyThreadLimit, fileComparator, swingCopyJobListener);
     }
 
     @Override

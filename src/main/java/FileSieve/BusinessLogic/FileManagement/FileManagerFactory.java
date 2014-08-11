@@ -13,13 +13,13 @@ public class FileManagerFactory {
     /**
      * Returns a SwingFileManager instance for handling common file management operations. This implementation of a
      * FileManager returns instances of a SwingCopyJob class for handling folder/file copies. SwingCopyJob
-     * instances use a SwingWorker to handle copy operations.
-     * One worker thread is used per long-running operation (e.g. a file or folder copy).
+     * instances use a SwingWorker to update the EDT.
+     * This parameterless constructor sets the number of threads used for concurrent file copies to 10 per copy job.
      *
      * @return                  a FileManager instance
      */
     public static SwingFileManager getSwingFileManager() {
-        return new SwingWorkerBasedFileManager(1);
+        return new SwingWorkerBasedFileManager(10);
     }
 
-} // class FileManagerFactory
+}

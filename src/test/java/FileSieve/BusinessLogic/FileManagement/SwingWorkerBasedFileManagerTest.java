@@ -652,7 +652,9 @@ public class SwingWorkerBasedFileManagerTest implements SwingCopyJobListener {
 
     @Override
     public void JobFinished(SwingCopyJob swingCopyJob, SwingCopyJobException exception) {
-        // System.err.println(throwable.getMessage());
+        if (exception != null) {
+            System.err.println(exception.getClass().getSimpleName() + ": " + exception.getMessage());
+        }
     }
 
     /**

@@ -40,6 +40,16 @@ public final class SwingCopyJob {
     private final Comparator<Path> fileComparator;
     private final AtomicBoolean backgroundThreadIsRunning = new AtomicBoolean(false);
     private SwingCopyJobException internalWorkerException = null;
+    private int fileCopyThreadLimit;
+
+    public void setFileCopyThreadLimit(int fileCopyThreadLimit) {
+        this.fileCopyThreadLimit = fileCopyThreadLimit;
+        worker.setFileCopyThreadLimit(fileCopyThreadLimit);
+    }
+
+    public int getFileCopyThreadLimit() {
+        return this.fileCopyThreadLimit;
+    }
 
     /**
      * Extracts the decorated (wrapped) Path from a DiscoveredPath instance.
@@ -58,10 +68,11 @@ public final class SwingCopyJob {
     /**
      * Static factory method for creating or retrieving a reference to an equivalent (ongoing) SwingCopyJob.
      *
-     * @param pathsToBeCopied           a list of Path objects abstracting folders and/or files to copy
+     * @param pathsToBeCopied           list of Path objects abstracting folders and/or files to copy
      * @param destinationFolder         destination folder to which file and folder copies are to be placed
      * @param recursiveCopy             boolean value specifying if a recursive search for files/folders within subfolders of folders within the pathsToBeCopied list should be carried out
      * @param overwriteExistingFiles    indicates if existing files in the target path should be overwritten if found to be similar to those currently being copied
+     * @param fileCopyThreadLimit       maximum number of concurrent file copy operations
      * @param fileComparator            Function object of type Comparator<Path> defining a compare method with which
      *                                  to compare two files. The compare method should define what it means for two
      *                                  regular files to be the same. If the method evaluates to 0 (equal) then the
@@ -75,7 +86,7 @@ public final class SwingCopyJob {
      * @throws IllegalStateException    thrown if the destination folder is being written to by a dissimilar copy job
      * @throws IOException              thrown if an IOException is encountered while converting source paths to real paths
      */
-    protected static SwingCopyJob getCopyJob(Set<Path> pathsToBeCopied, Path destinationFolder, boolean recursiveCopy, boolean overwriteExistingFiles, Comparator<Path> fileComparator, SwingCopyJobListener swingCopyJobListener) throws IllegalStateException, IOException {
+    protected static SwingCopyJob getCopyJob(Set<Path> pathsToBeCopied, Path destinationFolder, boolean recursiveCopy, boolean overwriteExistingFiles, int fileCopyThreadLimit, Comparator<Path> fileComparator, SwingCopyJobListener swingCopyJobListener) throws IllegalStateException, IOException {
         if (pathsToBeCopied == null) {
             throw new IllegalArgumentException("null reference passed for \"pathsToBeCopied\" parameter");
         }
@@ -107,7 +118,7 @@ public final class SwingCopyJob {
 
         /* Create a SwingCopyJob from the passed parameters but don't start (execute) its SwingWorker yet whereas we
            want to check for the existence of a similar ongoing job. */
-        SwingCopyJob newJob = new SwingCopyJob(realPaths, destinationFolder, recursiveCopy, overwriteExistingFiles, fileComparator, swingCopyJobListener);
+        SwingCopyJob newJob = new SwingCopyJob(realPaths, destinationFolder, recursiveCopy, overwriteExistingFiles, fileCopyThreadLimit, fileComparator, swingCopyJobListener);
 
         synchronized (swingCopyJobs) {
             // Ensure a similar job is not already in progress
@@ -157,6 +168,7 @@ public final class SwingCopyJob {
      * @param pathsBeingCopied          list (Set<Path>) of pathnames of folders and/or files to copy
      * @param destinationFolder         pathname of folder into which to copy sourcePathnames items
      * @param recursiveCopy             boolean value specifying if a recursive search for files/folders within subfolders of folders within the pathsToBeCopied list should be carried out
+     * @param fileCopyThreadLimit       maximum number of concurrent file copy operations
      * @param overwriteExistingFiles    indicates if files pre-existing files found in the target path should be overwritten if the fileComparator determines that they are different than their
      *                                  source path equivalents
      * @param fileComparator            Function object of type Comparator<Path> defining a compare method with which
@@ -169,11 +181,12 @@ public final class SwingCopyJob {
      *                                  length in bytes.
      * @param swingCopyJobListener      a reference to a CopyJobListener which is to receive copy job progress updates
      */
-    private SwingCopyJob(Set<Path> pathsBeingCopied, Path destinationFolder, boolean recursiveCopy, boolean overwriteExistingFiles, Comparator<Path> fileComparator, SwingCopyJobListener swingCopyJobListener) {
+    private SwingCopyJob(Set<Path> pathsBeingCopied, Path destinationFolder, boolean recursiveCopy, boolean overwriteExistingFiles, int fileCopyThreadLimit, Comparator<Path> fileComparator, SwingCopyJobListener swingCopyJobListener) {
         this.pathsBeingCopied = pathsBeingCopied;
         this.destinationFolder = destinationFolder;
         this.recursiveCopy = recursiveCopy;
         this.overwriteExistingFiles = overwriteExistingFiles;
+        this.fileCopyThreadLimit = fileCopyThreadLimit;
 
         if (fileComparator == null) {
             this.fileComparator = DefaultFileComparator.getInstance();
@@ -344,6 +357,10 @@ public final class SwingCopyJob {
             return result;
         }
 
+        protected void setFileCopyThreadLimit(int fileCopyThreadLimit) {
+            copyJobWorkDelegate.setFileCopyThreadLimit(fileCopyThreadLimit);
+        }
+
         /**
          * Constructor for the EdtUpdater class
          *
@@ -357,7 +374,7 @@ public final class SwingCopyJob {
 
             this.thisSwingCopyJob = enclosingSwingCopyJob;
 
-            copyJobWorkDelegate = new CopyJobWorkDelegate(this, pathsBeingCopied, destinationFolder, recursiveCopy, overwriteExistingFiles, fileComparator);
+            copyJobWorkDelegate = new CopyJobWorkDelegate(this, pathsBeingCopied, destinationFolder, recursiveCopy, overwriteExistingFiles, fileCopyThreadLimit, fileComparator);
             myWorker = new Thread(copyJobWorkDelegate);
             myWorker.setName("CopyJobDelegate");
         }

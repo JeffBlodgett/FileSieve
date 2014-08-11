@@ -40,16 +40,12 @@ class CopyJobWorkDelegate implements Runnable {
     private final boolean overwriteExistingFiles;
     private final List<Path> foldersCreatedInTarget = new ArrayList<>();
     private final Object fileCopyLock = new Object();
+    private final Object shutdownLock = new Object();
     private int copyPathsRecursionLevel = 0;
     private AtomicInteger fileCopyThreadCount = new AtomicInteger(0);
-
-    private final int corePoolSize;
-    private final int maximumPoolSize;
-    private final long keepAliveTime;
     private final ThreadPoolExecutor threadPoolExecutor;
-    private final Object shutdownLock = new Object();
 
-    protected CopyJobWorkDelegate(CopyWorkResultsReceiver copyWorkResultsReceiver, Set<Path> pathsBeingCopied, Path destinationFolder, boolean recursiveCopy, boolean overwriteExistingFiles, Comparator<Path> fileComparator) {
+    protected CopyJobWorkDelegate(CopyWorkResultsReceiver copyWorkResultsReceiver, Set<Path> pathsBeingCopied, Path destinationFolder, boolean recursiveCopy, boolean overwriteExistingFiles, int fileCopyThreadLimit, Comparator<Path> fileComparator) {
         if (copyWorkResultsReceiver == null) {
             throw new IllegalArgumentException("\"copyWorkDispatcher\" parameter cannot be null");
         }
@@ -63,33 +59,18 @@ class CopyJobWorkDelegate implements Runnable {
             throw new IllegalArgumentException("\"fileComparator\" parameter cannot be null");
         }
 
-        corePoolSize = 10;
-        maximumPoolSize = corePoolSize;
-        keepAliveTime = 5000;
-        threadPoolExecutor = new ThreadPoolExecutor(corePoolSize, maximumPoolSize, keepAliveTime, TimeUnit.MILLISECONDS, new SynchronousQueue<Runnable>()) {
-            @Override
-            protected void terminated() {
-                super.terminated();
-                synchronized(shutdownLock) {
-                    shutdownLock.notify();
-                }
-            }
-
-            @Override
-            protected void afterExecute(Runnable r, Throwable t) {
-                fileCopyThreadCount.decrementAndGet();
-                synchronized(fileCopyLock){
-                    fileCopyLock.notify();
-                }
-            }
-        };
+        final int maximumPoolSize = fileCopyThreadLimit;
+        final int corePoolSize = maximumPoolSize;
+        final int keepAliveTime = 5000;
+        threadPoolExecutor = new ThreadPoolExecutor(corePoolSize, maximumPoolSize, keepAliveTime, TimeUnit.MILLISECONDS, new SynchronousQueue<Runnable>());
         threadPoolExecutor.setRejectedExecutionHandler(new RejectedExecutionHandler() {
             @Override
             public void rejectedExecution(Runnable r, ThreadPoolExecutor executor) {
                 synchronized(fileCopyLock) {
                     if (!jobCancelled.get()) {
                         try {
-                            fileCopyLock.wait();
+                            fileCopyLock.wait();    // Notified by a completing FileCopy thread
+                            Thread.sleep(50L);      // Short delay to ensure completing FileCopy thread has had a chance to finalize
                             executor.execute(r);
                         } catch (InterruptedException e) {
                             copyWorkDispatcher.workerException(e);
@@ -110,17 +91,26 @@ class CopyJobWorkDelegate implements Runnable {
         jobCancelled = new AtomicBoolean(false);
     }
 
+    protected void setFileCopyThreadLimit(int fileCopyThreadLimit) {
+        if (!threadPoolExecutor.isShutdown()) {
+            if (fileCopyThreadLimit > threadPoolExecutor.getMaximumPoolSize()) {
+                threadPoolExecutor.setMaximumPoolSize(fileCopyThreadLimit);
+                threadPoolExecutor.setCorePoolSize(fileCopyThreadLimit);
+            } else if (fileCopyThreadLimit < threadPoolExecutor.getMaximumPoolSize()) {
+                threadPoolExecutor.setCorePoolSize(fileCopyThreadLimit);
+                threadPoolExecutor.setMaximumPoolSize(fileCopyThreadLimit);
+            }
+        }
+    }
+
     protected void stopWorkers() {
         jobCancelled.set(true);
         threadPoolExecutor.shutdown();
-        synchronized(shutdownLock) {
-            while (!threadPoolExecutor.isShutdown()) {
-                try {
-                    shutdownLock.wait();
-                } catch (InterruptedException e) {
-                    throw new RuntimeException("InterruptedException occurred while stopping FileCopy workers", e);
-                }
-            }
+
+        try {
+            threadPoolExecutor.awaitTermination(Integer.MAX_VALUE, TimeUnit.HOURS);
+        } catch (InterruptedException e) {
+            throw new RuntimeException("InterruptedException occurred while awaiting termination of FileCopy worker pool", e);
         }
     }
 
@@ -140,8 +130,8 @@ class CopyJobWorkDelegate implements Runnable {
             copyWorkDispatcher.workerException(new Exception(e.getClass().getSimpleName() + " while reading or writing files/folders in the source or target", e));
         }
 
-        while (fileCopyThreadCount.get() > 0) {
-            synchronized(fileCopyLock) {
+        synchronized (fileCopyLock) {
+            while ((fileCopyThreadCount.get() > 0) && (!jobCancelled.get())) {
                 try {
                     fileCopyLock.wait();
                 } catch (InterruptedException e) {
@@ -438,7 +428,6 @@ class CopyJobWorkDelegate implements Runnable {
 
                     if (jobCancelled.get() && (filePercentCopied < ONE_HUNDRED_PERCENT)) {
                         // Job was cancelled - delete file fragment and handle reporting
-
                         bos.close();
 
                         if (!target.toFile().delete()) {
@@ -482,6 +471,11 @@ class CopyJobWorkDelegate implements Runnable {
                 }
             } else {
                 publishWork(new SimpleImmutableEntry<>(destinationFolder, fileBytes));
+            }
+
+            fileCopyThreadCount.decrementAndGet();
+            synchronized (fileCopyLock) {
+                fileCopyLock.notify();
             }
         }
 

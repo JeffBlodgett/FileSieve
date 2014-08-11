@@ -56,4 +56,11 @@ interface FileCopier<T, L, C> {
      */
     public void setCopyOperationsListener(L listener);
 
-} // interface FileCopier<T, L>
+    /**
+     * Sets the maximum number of concurrent file copy threads.
+     *
+     * @param fileCopyThreadLimit
+     */
+    public void setFileCopyThreadLimit(int fileCopyThreadLimit);
+
+}
